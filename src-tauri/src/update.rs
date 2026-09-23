@@ -62,7 +62,7 @@ mod tests {
         assert!(allowed("https://dreamanual.com/works/vault.html"));
         assert!(allowed("https://dreamanual.com/works/downloads/vault-version.json"));
         assert!(allowed("https://afdian.com/a/wuyifa001"));
-        assert!(allowed("https://github.com/lantian-dreamanual/vault/releases"));
+        assert!(allowed("https://github.com/lantian-dreamanual/dreamanual-vault/releases"));
     }
 
     #[test]
