@@ -1,0 +1,27 @@
+{
+  "name": "dreamanual-vault",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Dreamanual 密码管理 · macOS 桌面密码管理器",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "app:dev": "tauri dev",
+    "app:build": "tauri build --no-bundle"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-dialog": "^2.7.3",
+    "@tauri-apps/plugin-opener": "^2.5.5",
+    "argon2-browser": "^1.18.0",
+    "kdbxweb": "^2.1.1"
+  }
+}

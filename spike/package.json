@@ -1,0 +1,15 @@
+{
+  "name": "dreamanual-vault-spike",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "M0 技术验证：kdbxweb + Argon2id 读写 .kdbx 往返，验收 G1/G2/G3",
+  "scripts": {
+    "roundtrip": "node roundtrip.mjs",
+    "verify": "node verify-format.mjs"
+  },
+  "dependencies": {
+    "hash-wasm": "^4.12.0",
+    "kdbxweb": "^2.1.1"
+  }
+}

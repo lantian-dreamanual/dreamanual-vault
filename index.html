@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dreamanual 密码管理</title>
+
+<!-- 两个加密依赖都用 script 标签加载，不走 import：
+     kdbxweb 是 UMD，把它交给打包器会命中 Node 分支（详见 src/vault/kdbx.ts 顶部）；
+     argon2-browser 的 bundled 版本是 webpack 产物，WASM 已内联成 base64，不需要额外 fetch。 -->
+<script src="/vendor/kdbxweb.min.js"></script>
+<script src="/vendor/argon2-bundled.min.js"></script>
+</head>
+<body>
+
+<!-- Overlay 标题栏下整条顶部用于拖动窗口。红绿灯按钮浮在左侧约 78×30 的区域，
+     所以三栏内容都从 --titlebar-h 之下开始。 -->
+<div class="drag-strip" data-tauri-drag-region></div>
+
+<!-- 品牌徽标里的那把钥匙。解锁页 / 建库页 / 侧栏三处共用这一份定义，改形状只改这里。
+     数字取自 App 图标那把钥匙的原始路径（1024 画布，钥匙占 x 346.58–674.58 / y 182.27–840.99），
+     按 2:1 的长宽比缩到 24×24 网格里的 x 7–17 / y 2–22，即 10×20。
+     fill 跟随 currentColor —— 白色由 views.css 的 .lock-mark / .brand-ic 给。
+     没放进 src/ui/icons.ts：那边是给动态渲染拼字符串用的，这里是静态标记，走 JS 会闪一下。 -->
+<svg width="0" height="0" aria-hidden="true" focusable="false"><defs>
+  <g id="brand-key" transform="translate(-3.50349 -3.53398) scale(0.0303616)"><path fill="currentColor" fill-rule="evenodd" d="M592.58203125,488.29355125C641.59753125,459.92154125,674.58203125,406.90854125,674.58203125,346.26953125C674.58203125,255.74153124999998,601.08955125,182.26953125,510.58203125,182.26953125C420.07453125,182.26953125,346.58203125,255.74153124999998,346.58203125,346.26953125C346.58203125,406.90854125,379.56653625,459.92154125,428.58203125,488.29355125L428.58203125,551.26953125L449.08203125,582.01953125L428.58203125,612.76953125L428.58203125,653.76953125L449.08203125,684.51953125L428.58203125,715.26953125L428.58203125,787.01953125C428.58203125,787.01953125,461.83302125,811.94751125,485.98204125,830.06952125C500.55752125000004,840.99603125,520.60654125,840.99603125,535.18205125,830.06952125C559.33104125,811.94751125,592.58203125,787.01953125,592.58203125,787.01953125L592.58203125,488.29355125ZM510.58203125,243.76953125C533.2140312500001,243.76953125,551.58203125,262.13752725,551.58203125,284.76953125C551.58203125,307.38103125,533.2140312500001,325.76953125,510.58203125,325.76953125C487.95003125,325.76953125,469.58203125,307.38103125,469.58203125,284.76953125C469.58203125,262.13752725,487.95003125,243.76953125,510.58203125,243.76953125Z"/></g>
+</defs></svg>
+
+<!-- ============================== 视图 1 · 解锁 ============================== -->
+<!-- 两张卡片共用这个网格容器，同一时刻只显示一张：
+     库已存在 → 解锁；库不存在 → 建库。由 unlock.ts 按 vault_info 的结果切换。 -->
+<section id="view-unlock" class="view is-active">
+
+  <div class="lock-card" id="lock-card">
+    <div class="lock-mark">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><use href="#brand-key"/></svg>
+    </div>
+    <h1>Dreamanual 密码管理</h1>
+
+    <!-- 当前库排在密码框**之前**：「在解哪一个库」是输密码的前提。
+         原先它排在卡片最末（那行路径），于是读下来是「输密码 → 解锁 → 才发现能换库 →
+         最后才看见在解哪个库」，而中间那两条分隔线是在替没理清的结构分区。
+         这一行点开是菜单（打开其他库 / 新建保险箱 / 在访达中显示），
+         所以底部不再需要那一行按钮，卡片里也不再有任何分隔线。
+
+         锁着的时候读不到库名 —— KDBX 4 把 Meta 段一起加密了 —— 能知道的只有
+         「它在哪个文件里」。这一行就如实显示路径与大小，不假装知道库叫什么。 -->
+    <div class="field">
+      <label for="lock-vault">当前库</label>
+      <button class="vault-row" id="lock-vault" type="button" title="切换密码库">
+        <span class="vault-row-path" id="lock-path">读取中…</span>
+        <svg class="vault-row-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </button>
+    </div>
+
+    <!-- 这一个字段不配标签：卡片里只有一个输入框，占位文字已经说了要输什么，
+         标签是把同一句话写第二遍。无障碍名走 aria-label，读屏仍能念出字段。
+         原先这一段距离由标题下的小字提供，现在归 h1 的 margin-bottom。 -->
+    <div class="field">
+      <input class="inp" type="password" id="lock-pw" placeholder="输入主密码" aria-label="主密码" autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="lock-msg" id="lock-msg"></div>
+    <div class="bar is-idle" id="lock-bar"><i></i></div>
+
+    <div class="lock-actions">
+      <button class="btn btn-pri" id="lock-submit">解锁</button>
+    </div>
+  </div>
+
+  <div class="lock-card hidden" id="lock-create">
+    <div class="lock-mark">
+      <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><use href="#brand-key"/></svg>
+    </div>
+    <h1>新建保险箱</h1>
+
+    <div class="field">
+      <label for="new-name">库名<span class="req" aria-hidden="true">*</span></label>
+      <input class="inp" id="new-name" value="Dreamanual 密码管理" aria-required="true" autocomplete="off" spellcheck="false">
+    </div>
+
+    <!-- 保存位置。落点必须由用户看到并可选 —— 原先它由「当前库位置」隐式决定，
+         换过库之后建库会落到上一次打开的那个库里，而界面上没有任何地方说过这件事。 -->
+    <div class="field">
+      <label>保存位置</label>
+      <div class="loc-row">
+        <span class="loc-text" id="new-loc">—</span>
+        <button class="btn btn-gho btn-xs" id="new-loc-pick" type="button">选择…</button>
+      </div>
+      <!-- 默认位置不写提示：上面那行路径已经说了库落在哪。位置被改到别处时
+           由 unlock.ts 填一句并显示 —— 那种情况才需要解释。 -->
+      <div class="hint hidden" id="new-loc-hint"></div>
+    </div>
+
+    <!-- 主密码与「再输一遍」并排。五个字段竖排会高过默认窗口，第一屏就够不到
+         「创建保险箱」；并排省掉一整套「标签 + 输入框 + 间距」的高度。 -->
+    <div class="field">
+      <div class="pw-grid">
+        <div class="pw-col">
+          <label for="new-pw">主密码<span class="req" aria-hidden="true">*</span></label>
+          <input class="inp" type="password" id="new-pw" placeholder="建议 12 位以上" aria-required="true" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="pw-col">
+          <label for="new-pw2">再输一遍<span class="req" aria-hidden="true">*</span></label>
+          <input class="inp" type="password" id="new-pw2" aria-required="true" autocomplete="off" spellcheck="false">
+        </div>
+      </div>
+      <div class="meter" id="new-pw-meter"><i></i></div>
+      <!-- 这行有两个用途：空值时给方向，输入弱密码时被换掉。所以它得有默认文案。 -->
+      <div class="hint" id="new-pw-hint">用一句你记得住的话，越长越安全</div>
+    </div>
+
+    <div class="field">
+      <label for="new-preset">解锁强度</label>
+      <select class="inp" id="new-preset">
+        <option value="流畅">流畅 · 约 0.35 秒</option>
+        <option value="均衡" selected>均衡 · 约 0.86 秒</option>
+        <option value="安全">安全 · 约 1.6 秒</option>
+      </select>
+      <div class="hint">参数写进库文件，换档需要重建库</div>
+    </div>
+
+    <div class="lock-msg" id="new-msg"></div>
+    <div class="bar is-idle" id="new-bar"><i></i></div>
+
+    <div class="lock-actions">
+      <button class="btn btn-pri" id="new-submit">创建保险箱</button>
+    </div>
+
+    <!-- 库已存在时才显示：首次启动没有可返回的解锁页 -->
+    <div class="lock-foot" id="new-foot">
+      <button class="btn btn-gho" id="new-back">返回解锁</button>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============================== 视图 2 · 应用壳 ============================== -->
+<!-- 解锁之后只剩这一个视图：左侧栏常驻，右侧在「保险箱」与「设置」两个面板间切换。 -->
+<section id="view-app" class="view">
+
+  <aside class="sider">
+    <div class="brand">
+      <div class="brand-ic">
+        <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#brand-key"/></svg>
+      </div>
+      <b>Dreamanual 密码管理</b>
+    </div>
+
+    <nav class="cats" id="cats" aria-label="分类"></nav>
+
+    <!-- 底栏。原先这里堆了四个东西：统计、加密方式、一个实心「新建条目」主按钮、
+         锁定/设置两个次级按钮 —— 统计在列表头的「N 条」已经有了，加密方式是库文件
+         决定的、改不了，两条都是噪声；而「新建条目」作用在**当前分类的列表**上，
+         却是全应用最重的一个按钮，放在导航栏末尾既够不着也讲不通。
+         现在底栏只回答一个问题：**现在开的是哪个库**。左侧点开是换库菜单，
+         右侧两个图标是与库无关的全局动作（锁定、设置）—— 设置另有 ⌘, 。 -->
+    <div class="sider-foot">
+      <div class="save-state" id="save-state"></div>
+      <div class="sider-foot-row">
+        <button class="vault-switch" id="btn-vault" type="button" title="切换密码库">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+          <span class="vault-name" id="vault-name">—</span>
+        </button>
+        <button class="icon-btn" id="btn-lock" type="button" title="锁定（⌘L）" aria-label="锁定">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </button>
+        <button class="icon-btn" id="btn-settings" type="button" title="设置（⌘,）" aria-label="设置">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H7a1.7 1.7 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V7a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="stage">
+
+    <!-- 面板 A · 保险箱（列表 + 详情） -->
+    <div id="pane-vault" class="pane is-active">
+      <section class="pane-list">
+        <div class="search-box">
+          <!-- 输入框单独包一层，是为了让「清空」跟着输入框定位。
+               新建条目挂在同一行右侧 —— 它作用在这个列表上，入口就该贴着列表。 -->
+          <div class="search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+            <input class="search" id="search" placeholder="搜索标题、账号、备注…" autocomplete="off" spellcheck="false">
+            <button class="search-clear hidden" id="search-clear" title="清空（Esc）">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <button class="icon-btn" id="btn-new-entry" type="button" title="新建条目（⌘N）" aria-label="新建条目">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+        </div>
+        <div class="list-head"><span id="list-count"></span><span id="list-scope"></span></div>
+        <div class="list" id="list"></div>
+      </section>
+      <section class="pane-detail" id="detail"></section>
+    </div>
+
+  </main>
+
+  <!-- 面板 B · 设置。**不在 `main.stage` 里** —— 它要盖住整个窗口（含左侧栏）。
+       放在 `main.stage` 内的话它是一个 grid 列项，只能占右侧那一列；而它与
+       「列表 + 详情」不是并列关系，是覆盖关系：进去之后左侧不可点（原先用
+       `.is-muted` 主动灰掉，现在被面板盖住即可），出口是面板自己的右上角 ×
+       （⌘, 与 Esc 同样有效）。
+
+       怎么盖：`position: absolute; inset: 0`，定位上下文是 `#view-app`
+       （它加了 `position: relative`）。`.drag-strip` 的 z-index 是 5，
+       仍在面板之上，所以窗口照样能拖。 -->
+  <div id="pane-settings" class="pane">
+    <div class="settings-body">
+        <header class="settings-head">
+          <!-- 面板自己的出口。此前出口只有侧栏底栏那一个按钮，而它的语义是「开关」，
+               视线在内容区左上角找返回时那儿空着。⌘, 与 Esc 也在，但界面上没提示，
+               且焦点停在 select 上时 Esc 会被控件吃掉。 -->
+          <div class="settings-head-row">
+            <h1>设置</h1>
+            <button class="icon-btn" id="set-close" type="button" title="返回保险箱（Esc）" aria-label="返回保险箱">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <!-- 只写后果，不写「改动会保存」—— 没人怀疑这件事。 -->
+          <p class="settings-sub">换 KDF 档位与改主密码会重建整个库，需要再输一次主密码。</p>
+        </header>
+
+        <section class="settings-group">
+          <h2>安全</h2>
+          <div class="srow">
+            <div class="srow-k"><b>自动锁定</b><span>无操作达到该时长后锁定保险箱</span></div>
+            <select class="inp srow-ctl" id="set-autolock">
+              <option value="1">1 分钟</option>
+              <option value="5" selected>5 分钟</option>
+              <option value="15">15 分钟</option>
+              <option value="30">30 分钟</option>
+              <option value="0">从不</option>
+            </select>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>锁屏与休眠时锁定</b><span>系统锁屏或进入休眠立即锁定</span></div>
+            <label class="switch"><input type="checkbox" id="set-lockonsleep" checked><i></i></label>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>剪贴板清除</b><span>复制密码后自动清空剪贴板</span></div>
+            <select class="inp srow-ctl" id="set-clipclear">
+              <option value="15">15 秒</option>
+              <option value="30" selected>30 秒</option>
+              <option value="60">60 秒</option>
+              <option value="0">不自动清除</option>
+            </select>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>KDF 强度档位</b><span id="set-kdf-current">读取中…</span></div>
+            <div class="srow-acts">
+              <select class="inp srow-ctl" id="set-kdf">
+                <option value="流畅">流畅 · 128 MiB</option>
+                <option value="均衡" selected>均衡 · 256 MiB</option>
+                <option value="安全">安全 · 512 MiB</option>
+              </select>
+              <button class="btn btn-gho srow-ctl" id="set-kdf-apply" disabled>应用</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="settings-group">
+          <h2>备份</h2>
+          <div class="srow">
+            <div class="srow-k"><b>备份目录</b><span id="set-backup-path">未设置</span></div>
+            <button class="btn btn-gho srow-ctl" id="set-backup-pick">选择…</button>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>保存后自动镜像</b><span>每次保存库文件后同步一份到备份目录</span></div>
+            <label class="switch"><input type="checkbox" id="set-backup-auto" checked><i></i></label>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>上次备份成功</b><span id="set-backup-last">—</span></div>
+            <span class="pill" id="set-backup-state">未备份</span>
+          </div>
+          <div class="srow">
+            <!-- 上面「保存后自动镜像」已解释过镜像是什么，按钮名也说了「立即」。 -->
+            <div class="srow-k"><b>立即备份</b></div>
+            <button class="btn btn-gho srow-ctl" id="set-backup-now" disabled>立即备份</button>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>历史版本上限</b><span>本地与备份目录各保留的份数</span></div>
+            <input class="inp srow-ctl srow-num" type="number" id="set-keep" min="1" max="50" value="10">
+          </div>
+        </section>
+
+        <section class="settings-group">
+          <h2>数据</h2>
+          <div class="srow">
+            <div class="srow-k"><b>库名</b><span id="set-vault-name">—</span></div>
+            <button class="btn btn-gho srow-ctl" id="set-rename-vault" disabled>重命名…</button>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>主库位置</b><span id="set-vault-path">~/Library/Application Support/Dreamanual密码管理/vault.kdbx</span></div>
+            <div class="srow-acts">
+              <button class="btn btn-gho srow-ctl" id="set-reveal">在访达中显示</button>
+              <button class="btn btn-gho srow-ctl" id="set-open-other">打开其他库…</button>
+            </div>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>导出库文件</b><span>另存一份加密的 .kdbx</span></div>
+            <button class="btn btn-gho srow-ctl" id="set-export" disabled>导出…</button>
+          </div>
+          <div class="srow">
+            <div class="srow-k"><b>修改主密码</b><span>用新主密码重新加密整个库</span></div>
+            <button class="btn btn-gho srow-ctl" id="set-change-pw" disabled>修改…</button>
+          </div>
+        </section>
+
+        <section class="settings-group">
+          <h2>关于</h2>
+          <!-- 版本号这一行是只读的：它取自二进制自己（Rust 侧读 tauri.conf.json），
+               页面上没有第二处写版本，所以不会有「界面说旧版、实际是新版」这种事。 -->
+          <div class="srow">
+            <div class="srow-k"><b>当前版本</b></div>
+            <span class="srow-val" id="set-version">—</span>
+          </div>
+          <div class="srow">
+            <!-- 副标题初始为空，按下按钮后才写状态。四种结果（检查中 / 已是最新 /
+                 发现新版本 / 检查失败）都落在这里，按钮只管触发。 -->
+            <div class="srow-k"><b>检查更新</b><span id="set-update-state"></span></div>
+            <button class="btn btn-gho srow-ctl" id="set-check-update">立即检查</button>
+          </div>
+          <!-- 整行是按钮，不是「一行说明 + 一个『打开』按钮」——
+               后者要用户先把句子读成动作名。右边那个箭头表示会离开本应用。
+               外层仍是 div.srow：圆角与描边那套挂在下标是 first/last-of-type 的
+               规则上，而那两个伪类是**按标签名**匹配的 —— 外层直接换成 button，
+               这一行会同时丢掉下边框与下圆角（同组其余各行都是 div）。 -->
+          <div class="srow srow-link">
+            <button class="srow-hit" id="set-donate" type="button">
+              <div class="srow-k"><b>请我喝杯咖啡</b></div>
+              <svg class="srow-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </button>
+          </div>
+        </section>
+      </div>
+    </div>
+</section>
+
+<!-- ============================== 编辑弹窗 ============================== -->
+<div class="mask hidden" id="editor-mask">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="editor-title">新建条目</h2>
+      <button class="icon-btn" id="editor-close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="f-title">标题<span class="req" aria-hidden="true">*</span></label>
+        <input class="inp" id="f-title" placeholder="例如：生产-JumpServer" aria-required="true" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="f-cat">分类</label>
+        <select class="inp" id="f-cat"></select>
+      </div>
+      <div class="field">
+        <label for="f-user">账号</label>
+        <input class="inp" id="f-user" placeholder="用户名 / 邮箱 / 工号" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <!-- 这一栏不只装密码：应用只显示一次的 API key / 恢复码也落在这里
+             （自定义字段系统已按 PRD §3.3 砍掉，备注留给多行信息）。
+             占位文字原先写「留空则自动生成」—— 保存路径上从来没有生成这一步，
+             留空只会得到一条没密码的条目。改成如实的后果说明。 -->
+        <label for="f-pw">密码 / 密钥</label>
+        <div class="pw-wrap">
+          <input class="inp" type="password" id="f-pw" placeholder="留空则不记录" autocomplete="off" spellcheck="false">
+          <div class="pw-tools">
+            <button class="icon-btn" id="f-pw-reveal" title="显示 / 隐藏">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <button class="icon-btn" id="f-pw-gen" title="生成随机密码">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="meter" id="f-pw-meter"><i></i></div>
+      </div>
+      <div class="field">
+        <label for="f-url">网址 / IP</label>
+        <input class="inp" id="f-url" placeholder="https://… 或 192.0.2.40" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field">
+        <label for="f-notes">备注</label>
+        <textarea class="inp" id="f-notes" placeholder="连接命令、注意事项、申请单号…"></textarea>
+        <div class="hint">IP、端口、连接命令这类信息放备注，靠全文检索找回。</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-danger hidden" id="editor-delete">删除</button>
+      <button class="btn btn-gho" id="editor-cancel">取消</button>
+      <button class="btn btn-pri" id="editor-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>

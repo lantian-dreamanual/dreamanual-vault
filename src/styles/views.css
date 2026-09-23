@@ -1,0 +1,1208 @@
+/* 视图层：解锁页、应用壳、保险箱面板、设置面板。
+   结构上与原型的差别：原型是「浅灰底上浮一张圆角卡片」，这里改成全出血 ——
+   窗口自带圆角与投影，再叠一层卡片是重复。代价是顶部要给 Overlay 标题栏的
+   红绿灯让出 --titlebar-h 的空间。 */
+
+/* ============================ 视图 1 · 解锁 ============================ */
+
+.lock-card {
+    width: 100%;
+    max-width: 392px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 34px 32px 26px;
+    box-shadow: var(--shadow-card);
+}
+
+.lock-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(150deg, var(--brand-1), var(--brand-2));
+    display: grid;
+    place-items: center;
+    color: #fff;
+    margin-bottom: 18px;
+}
+
+/* 标题到第一个字段之间那 22px。原先由标题下的小字提供，两处小字都删掉之后
+   归标题自己，解锁卡与建库卡共用同一个值。 */
+.lock-card h1 {
+    font-size: 19px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    margin-bottom: 22px;
+}
+
+.lock-msg {
+    font-size: 12.5px;
+    color: var(--danger);
+    min-height: 18px;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.lock-actions {
+    margin-top: 18px;
+    display: flex;
+    gap: 8px;
+}
+
+.lock-actions .btn {
+    flex: 1;
+}
+
+/* 建库卡片底部那一行（返回解锁 / 打开其他库）。**不要分隔线** ——
+   它上面只有一个主按钮，一条横线分不出任何两组东西；而库还不存在时那一行
+   本来就只剩一个按钮，线更像是漏画的残迹。间距就够。 */
+.lock-foot {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.lock-foot .btn {
+    flex: 1;
+    height: 34px;
+    font-size: 12.5px;
+}
+
+/* 解锁进度条。Argon2 按档位要 0.35–1.6 秒，没有反馈会被当成卡死。
+ *
+ * **空转时也占位**（`.is-idle` 走 `visibility` 而不是 `display: none`）：
+ * 用 `display` 切换的话，点「解锁」的瞬间卡片会长高 17px（3px 条 + 14px 上边距），
+ * 按钮在手指底下跳一下。代价是解锁卡永久高这 17px，换来整个流程里高度恒定。 */
+.bar {
+    height: 3px;
+    background: var(--panel-3);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 14px;
+}
+
+.bar.is-idle {
+    visibility: hidden;
+}
+
+/* 条子看不见了，动画也别跑 —— 两张卡各有一条，白烧一份合成帧 */
+.bar.is-idle i {
+    animation-play-state: paused;
+}
+
+.bar i {
+    display: block;
+    height: 100%;
+    width: 35%;
+    background: var(--accent);
+    border-radius: 3px;
+    animation: slide 1s ease-in-out infinite;
+}
+
+@keyframes slide {
+    0% {
+        margin-left: -35%;
+    }
+    100% {
+        margin-left: 100%;
+    }
+}
+
+/* ============================ 视图 2 · 应用壳 ============================ */
+
+#view-app.is-active {
+    display: grid;
+    grid-template-columns: var(--sider-w) 1fr;
+    /* 行高锁成容器高度。不写这行的话行高由内容决定：设置面板比窗口高时
+       整行被撑开，两个列项跟着变高 —— 侧栏底部的按钮被推出视口（关不掉
+       设置页），设置面板的 height:100% 也算成撑高后的值、overflow-y 永不
+       触发（滚不动）。主视图当初没暴露，是因为它内部本来就各自滚。 */
+    grid-template-rows: 100%;
+    overflow: hidden;
+    /* 设置面板靠 `position: absolute; inset: 0` 铺满**整个窗口**，它的定位上下文
+       就是这一层。少这一条，绝对定位会一路往上传到视口 —— 现在看着一样，
+       但窗口外面再套一层容器时就会错位。 */
+    position: relative;
+}
+
+/* ---------- 侧栏 ---------- */
+
+.sider {
+    /* 侧栏材质（PRD §7.2）：这里刻意**不铺底**。Tauri 按 windowEffects 把
+       NSVisualEffectView（material = sidebar）插在整个 WKWebView 下面，
+       网页留空的区域就直接显示它。铺任何底色都会把材质盖死。 */
+    background: transparent;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* grid / flex 项默认 min-height:auto，会被内容顶开而非收缩。
+       侧栏必须能被压到窗口高度以内，否则底部的按钮跑到屏幕外。 */
+    min-height: 0;
+    overflow: hidden;
+    padding-top: var(--titlebar-h);
+
+    /* 材质上的文字色。侧栏是唯一「底色不来自令牌」的区域：底色由
+       NSVisualEffectView 决定、跟着窗口背后的桌面走 —— 实测约 rgb(82,84,85)
+       且随壁纸浮 ±6。所以不能沿用令牌表里「对着 --panel」的值。
+
+       只重写这一个令牌：5.26:1（底色偏亮时 4.73:1）。
+
+       其余落到材质上的文字都走 --ink-2，没有第三级：
+         .cat 名称 · .cats-label · .vault-name · .cat-n 徽章（自带 --panel 底）
+       唯一的 --ink-3 是 .cats-add 那个 + 图标 —— 图形元素，按非文本 3:1 判，
+       基础令牌的 --ink-3 直接够用（3.56:1，对着实测材质底色）。
+
+       改这里的值之后请重跑 `scripts/a3-probe.sh`：材质底色不是令牌，
+       `spike/contrast.mjs` 算不到它。 */
+    --ink-2: #d1d7df;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 15px 14px 13px;
+    border-bottom: 1px solid var(--line);
+}
+
+.brand-ic {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(150deg, var(--brand-1), var(--brand-2));
+    display: grid;
+    place-items: center;
+    color: #fff;
+    flex: none;
+}
+
+/* 品牌钥匙在方底里的占比，与 App 图标统一。
+   口径取「钥匙高 ÷ 图标整幅」（1024 画布），而不是「÷ 深色底板」—— 底板之外还有 100 透明留边，
+   按画布算才和看图标时的整体感一致：657 / 1024 = 64.2%。
+   symbol 的 viewBox 里钥匙占 20/24 高，故 svg = 64.2% × 24/20 = 77%。 */
+.lock-mark svg,
+.brand-ic svg {
+    width: 77%;
+    height: 77%;
+}
+
+.brand b {
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cats {
+    flex: 1;
+    /* 同上：不给 0 的话分类列表会把侧栏顶高，而不是自己滚 */
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 8px;
+    transition: opacity 0.15s;
+}
+
+.cats-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    /* 标签性质，用二级而不是三级。侧栏的底色是材质，三级在它上面算不到 4.5。 */
+    color: var(--ink-2);
+    padding: 3px 4px 3px 8px;
+}
+
+/* 分类的新建入口。此前它只活在右键菜单里，而条目（分类里的内容）的创建
+   反而是底栏的主按钮 —— 容器的创建不该比内容的创建更难发现。
+   高度压在 20px 以内，为的是不把这行撑高：这行本来就是 flex: 1 之外的
+   固定高度，长一点就从分类列表的可滚区里扣。 */
+.cats-add {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    color: var(--ink-3);
+    transition: 0.14s;
+    flex: none;
+}
+
+.cats-add:hover {
+    background: var(--panel-3);
+    color: var(--ink);
+}
+
+.cat {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink-2);
+    cursor: pointer;
+    transition: 0.12s;
+    margin-bottom: 1px;
+    width: 100%;
+    text-align: left;
+}
+
+.cat:hover {
+    background: var(--panel-3);
+    color: var(--ink);
+}
+
+.cat.on {
+    background: var(--accent-soft);
+    color: var(--accent-2);
+    font-weight: 650;
+}
+
+.cat-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cat-n {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--ink-2);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-variant-numeric: tabular-nums;
+    flex: none;
+}
+
+.cat.on .cat-n {
+    background: var(--panel);
+    color: var(--accent-2);
+    border-color: var(--accent-line);
+}
+
+.cat-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex: none;
+    margin-left: 3px;
+}
+
+/* 底栏只放「现在开的是哪个库」与两个全局动作。 */
+.sider-foot {
+    padding: 8px 10px 10px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.sider-foot-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* 库切换。整条是按钮，点开是一个菜单（打开其他库 / 在访达中显示 / 用默认位置）。
+   宽度给足是为了让长库名有地方省略，而不是把两个图标挤出去。 */
+.vault-switch {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    height: 30px;
+    padding: 0 7px;
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--ink-2);
+    transition: 0.14s;
+}
+
+.vault-switch > svg {
+    flex: none;
+    color: var(--ink-3);
+    transition: 0.14s;
+}
+
+.vault-switch:hover {
+    background: var(--panel-3);
+    color: var(--ink);
+}
+
+.vault-switch:hover > svg {
+    color: var(--ink-2);
+}
+
+.vault-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 图标按钮。底栏这两个（锁定 / 设置）与列表头的「新建条目」共用一套：
+   中性配色、同尺寸，靠位置而不是靠色块区分主次。 */
+.icon-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    display: grid;
+    place-items: center;
+    color: var(--ink-2);
+    transition: 0.14s;
+    flex: none;
+}
+
+.icon-btn:hover {
+    background: var(--panel-3);
+    color: var(--ink);
+}
+
+/* 设置面板开着时，那个齿轮同时是「返回」—— 用一个持续的点亮态说明这件事，
+   比改文案省地方（底栏这一排没有放得下一句话的余地）。 */
+.icon-btn.is-on {
+    background: var(--accent-soft);
+    color: var(--accent-2);
+}
+
+.icon-btn:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* ---------- 内容区与面板切换 ---------- */
+
+.stage {
+    min-width: 0;
+    /* 列项默认 min-height:auto 会被内容撑开，把行高一起顶上去。
+       设置面板是唯一内容比窗口高的面板，所以只有它会暴露这个默认值。 */
+    min-height: 0;
+    display: grid;
+    overflow: hidden;
+    background: var(--panel);
+}
+
+.pane {
+    display: none;
+    min-width: 0;
+    height: 100%;
+}
+
+#pane-vault.is-active {
+    display: grid;
+    grid-template-columns: var(--list-w) 1fr;
+}
+
+/* 设置面板**覆盖整个窗口**（含左侧栏），不是右侧那一列。
+ *
+ * 它挂在 `#view-app` 下（不在 `main.stage` 里），靠绝对定位铺满，定位上下文是
+ * `#view-app` 的 `position: relative`。
+ *
+ * 盖住之后侧栏够不着 —— 这就是「进设置时左侧不可点」的实现。原先的做法是给
+ * `.cats` 挂 `.is-muted`（`opacity: .4` + `pointer-events: none`）：侧栏还留在
+ * 视野里摆着「可用」的样子，点上去没反应，同时把两栏的层级关系也讲糊涂了。 */
+#pane-settings.is-active {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow-y: auto;
+    /* 铺底。原先靠 `.stage` 的 `--panel`，离开它之后要自己来 —— 底下那层是
+       侧栏材质（NSVisualEffectView），不铺底会透出来。 */
+    background: var(--panel);
+}
+
+/* ---------- 列表栏 ---------- */
+
+.pane-list {
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding-top: var(--titlebar-h);
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 12px 10px;
+}
+
+/* 输入框与它内嵌的两个图标（放大镜、清空）单独一层。图标要跟着**输入框**定位：
+   这一行右侧多了「新建条目」之后，若还按整行定位，清空按钮会落到那个按钮上。 */
+.search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+.search-wrap > svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--ink-3);
+    pointer-events: none;
+}
+
+/* 列表头的「新建条目」。作用范围就是这一列，所以入口贴在这一列上；
+   尺寸跟着搜索框走，不再是底栏那个占满宽度的实心主按钮。 */
+.search-box .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--r);
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+}
+
+.search-box .icon-btn:hover {
+    border-color: var(--accent-line);
+    color: var(--ink);
+}
+
+.search {
+    width: 100%;
+    height: 36px;
+    padding: 0 32px 0 33px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    outline: none;
+    font-size: 13px;
+    transition: 0.14s;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.search:focus {
+    background: var(--panel);
+    border-color: var(--accent-line);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.search-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--ink-3);
+}
+
+.search-clear:hover {
+    background: var(--panel-3);
+    color: var(--ink);
+}
+
+.list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 14px 8px;
+    font-size: 11px;
+    color: var(--ink-3);
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+
+.list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px 12px;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.12s;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+}
+
+.item:hover {
+    background: var(--panel-2);
+}
+
+.item.on {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+}
+
+.ava {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    flex: none;
+    font-size: 12.5px;
+    font-weight: 700;
+    background: var(--panel-3);
+    color: var(--ink-2);
+    letter-spacing: -0.02em;
+    border: 1px solid var(--line);
+}
+
+.item.on .ava {
+    background: var(--panel);
+    border-color: var(--accent-line);
+    color: var(--accent-2);
+}
+
+.item-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.item-title {
+    font-size: 13px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.item-sub {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 1px;
+}
+
+mark {
+    background: var(--mark-bg);
+    color: var(--mark-ink);
+    border-radius: 2px;
+    padding: 0 1px;
+}
+
+.empty {
+    padding: 52px 24px;
+    text-align: center;
+    color: var(--ink-3);
+    font-size: 12.5px;
+    line-height: 1.9;
+}
+
+/* ---------- 详情栏 ---------- */
+
+.pane-detail {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow-y: auto;
+    background: var(--panel);
+    padding-top: var(--titlebar-h);
+}
+
+.detail-empty {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    color: var(--ink-3);
+    font-size: 12.5px;
+    text-align: center;
+    line-height: 2;
+}
+
+.detail-head {
+    padding: 22px 26px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.detail-ava {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-size: 17px;
+    font-weight: 700;
+    background: var(--accent-soft);
+    color: var(--accent-2);
+    flex: none;
+    border: 1px solid var(--accent-line);
+}
+
+.detail-title {
+    font-size: 17px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+    word-break: break-word;
+}
+
+.detail-tags {
+    display: flex;
+    gap: 6px;
+    margin-top: 7px;
+    flex-wrap: wrap;
+}
+
+.tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2.5px 9px;
+    border-radius: 20px;
+    background: var(--panel-3);
+    color: var(--ink-2);
+}
+
+.tag-cat {
+    background: var(--accent-soft);
+    color: var(--accent-2);
+}
+
+.detail-acts {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    flex: none;
+}
+
+.detail-body {
+    padding: 8px 26px 32px;
+}
+
+.row {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.row:last-child {
+    border-bottom: none;
+}
+
+/* 可复制的字段行。它们可聚焦 —— ⌘C「复制当前字段」的「当前」就是焦点所在的那一行。
+   焦点环只在键盘走到时出现（`:focus-visible`）：用鼠标点一下行是看内容，
+   弹出一个环只会显得碍事。 */
+.row.is-copyable {
+    border-radius: 8px;
+}
+
+.row.is-copyable:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.row-k {
+    width: 76px;
+    flex: none;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+}
+
+.row-v {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    word-break: break-all;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+.row-v.plain {
+    font-family: inherit;
+}
+
+.row-v.muted {
+    color: var(--ink-3);
+}
+
+/* 掩码切换（F4.2）。关键帧与眼睛的 `.is-pop` 在 base.css，这里是详情栏的挂点。
+   `renderDetail()` 每次都重建 innerHTML，元素是新的，所以只有动画能播；
+   `.is-swap` 由 `vault.ts` 的一次性标记带上，只在点了眼睛那一帧出现。 */
+.row-v.is-swap {
+    animation: pw-swap 0.18s ease-out;
+}
+
+.row-acts {
+    display: flex;
+    gap: 2px;
+    flex: none;
+}
+
+.block {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.block:last-child {
+    border-bottom: none;
+}
+
+.block-k {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-3);
+    margin-bottom: 7px;
+}
+
+.block-v {
+    font-size: 13.5px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--ink-2);
+    line-height: 1.7;
+}
+
+/* ---------- 设置面板 ---------- */
+
+.settings-body {
+    padding: calc(var(--titlebar-h) + 22px) 30px 40px;
+    max-width: 720px;
+    /* 面板铺满整窗之后，内容块在窗口里**居中**（块内仍左对齐）。
+       不加这条的话它贴着左边开始，而那 248px 正是侧栏的宽度 ——
+       看着像还停在两栏布局里。 */
+    margin-inline: auto;
+}
+
+.settings-head {
+    margin-bottom: 24px;
+}
+
+/* 标题与出口同一行。出口做成图标按钮而不是文字按钮，为的是不把这一行加高 ——
+   面板本来就比窗口高（内容 1127 / 视口 720），每加一行都要从可滚区里扣。 */
+.settings-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.settings-head h1 {
+    font-size: 19px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+}
+
+.settings-sub {
+    font-size: 12.5px;
+    color: var(--ink-3);
+    margin-top: 5px;
+}
+
+.settings-group {
+    margin-bottom: 26px;
+}
+
+.settings-group > h2 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    margin-bottom: 8px;
+}
+
+.srow {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-bottom: none;
+    background: var(--panel);
+}
+
+.srow:first-of-type {
+    border-radius: var(--r) var(--r) 0 0;
+}
+
+.srow:last-of-type {
+    border-bottom: 1px solid var(--line);
+    border-radius: 0 0 var(--r) var(--r);
+}
+
+.srow-k {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.srow-k b {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.srow-k span {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.srow-ctl {
+    flex: none;
+    width: auto;
+    min-width: 132px;
+}
+
+select.srow-ctl {
+    height: 32px;
+    font-size: 12.5px;
+}
+
+.srow-num {
+    width: 84px;
+    min-width: 0;
+    height: 32px;
+    text-align: center;
+}
+
+/* 「请我喝杯咖啡」整行是按钮。外层仍是 `.srow`，好接着享受上面那套
+   first/last-of-type 的圆角与描边 —— 那两个伪类是按**标签名**匹配的，
+   外层若直接换成 button，这一行会同时丢掉下边框与下圆角（同组其余各行都是 div）。 */
+.srow-link {
+    padding: 0;
+}
+
+.srow-hit {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 12px 14px;
+    background: none;
+    border: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.srow-hit:hover .srow-k b,
+.srow-hit:hover .srow-chev {
+    color: var(--accent-2);
+}
+
+/* 右侧那个箭头表示「点了会离开本应用」，与「展开/收起」的 chevron 不是一回事 */
+.srow-chev {
+    flex: none;
+    color: var(--ink-3);
+}
+
+/* 只读的值（「当前版本」那一格）。等宽数字，版本号从 v1.0.0 变成 v1.10.0 时那列不会左右跳 */
+.srow-val {
+    flex: none;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+}
+
+/* 「检查更新」那行的状态。默认跟随 .srow-k span 的灰，只有两个值得一提的结果上色 */
+.srow-k span.is-new {
+    color: var(--accent-2);
+}
+
+.srow-k span.is-bad {
+    color: var(--danger);
+}
+
+.pill {
+    flex: none;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--panel-3);
+    color: var(--ink-3);
+}
+
+.pill.ok {
+    background: var(--accent-soft);
+    color: var(--accent-2);
+}
+
+.pill.warn {
+    background: var(--warn-bg);
+    color: var(--warn-ink);
+}
+
+/* 备份失败 / 超过 24 小时未成功。与 warn 分开是有意的：
+   warn 是「还没配好」，bad 是「配好了但没在工作」——
+   后者才是要人去查 Synology Drive 客户端的那种状态，两者不该长得一样。 */
+.pill.bad {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+/* 开关 */
+.switch {
+    flex: none;
+    position: relative;
+    width: 42px;
+    height: 24px;
+    display: inline-block;
+    cursor: pointer;
+}
+
+.switch input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+.switch i {
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    background: var(--line-2);
+    transition: 0.18s;
+    pointer-events: none;
+}
+
+.switch i::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    transition: 0.18s;
+}
+
+.switch input:checked + i {
+    background: var(--accent);
+}
+
+.switch input:checked + i::after {
+    transform: translateX(18px);
+}
+
+.switch input:focus-visible + i {
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+/* ---------- 右键菜单（分类的重命名 / 删除） ---------- */
+
+.ctxmenu {
+    position: fixed;
+    z-index: 60;
+    min-width: 152px;
+    padding: 5px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: var(--shadow-modal);
+}
+
+.ctxmenu button {
+    display: block;
+    width: 100%;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: default;
+}
+
+.ctxmenu button:hover {
+    background: var(--panel-3);
+}
+
+.ctxmenu button.is-danger {
+    color: var(--danger);
+}
+
+.ctxmenu button.is-danger:hover {
+    background: var(--danger-hover);
+}
+
+/* ---------- 解锁卡片：库路径与弱密码提示 ---------- */
+
+/* 路径 + 「在访达中显示」。路径本身是长串，要能换行；按钮 flex:none，
+   所以换行只会发生在路径那一侧。 */
+/* 解锁卡片的「当前库」那一行。整行是个按钮（点开换库菜单），所以它长得像
+   设置页的 .loc-row，而不像一行说明文字。
+
+   路径换行用 `overflow-wrap: anywhere` 而不是 `word-break: break-all`：
+   后者会在任意字符处断，`Application Support` 会被劈成 `Applicatio` / `n`
+   两行半；anywhere 优先在 `/` 与空格处断。 */
+.vault-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 9px 11px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--panel-2);
+    color: var(--ink-2);
+    font: inherit;
+    cursor: pointer;
+}
+
+.vault-row:hover {
+    border-color: var(--line-2);
+}
+
+.vault-row-path {
+    flex: 1;
+    min-width: 0;
+    font-size: 11.5px;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.vault-row-chev {
+    flex: none;
+    color: var(--ink-3);
+}
+
+/* ---------- 小按钮 ----------
+ * .btn 默认是 38px / 13px，挂在路径行或设置行里都比周围文字重。 */
+
+.btn-xs {
+    flex: none;
+    width: auto;
+    height: 28px;
+    padding: 0 11px;
+    font-size: 11.5px;
+    font-weight: 500;
+}
+
+/* ---------- 建库卡片的两列密码 ---------- */
+
+/* 主密码与「再输一遍」并排。理由是高度：建库卡片有五个字段，竖排时
+ * 总高超过默认窗口（1080×720），第一屏够不到「创建保险箱」。
+ * 并排省掉一整套「标签 + 输入框 + 字段间距」。 */
+.pw-grid {
+    display: flex;
+    gap: 8px;
+}
+
+/* min-width: 0：flex 列项的默认最小宽度是内容宽，密码框里的 placeholder
+ * 会把列顶宽、挤掉右边那一列。 */
+.pw-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* ---------- 建库卡片的保存位置 ---------- */
+
+/* 路径不截断。默认位置是 ~/Library/Application Support/… 这种长串，
+ * 截断之后剩「~/Library/Applica…」，恰好把「哪一个目录」这个关键信息切掉。 */
+.loc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--panel);
+}
+
+.loc-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    word-break: break-all;
+}
+
+/* ---------- 设置行的按钮组 ---------- */
+
+.srow-acts {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 8px;
+}
+
+/* srow-ctl 的 132px 是给单个按钮撑宽度用的，两个叠在一起会把左边的路径挤没 */
+.srow-acts .btn {
+    width: auto;
+    min-width: 0;
+}
+
+.hint.warn {
+    color: var(--warn-ink);
+}
+
+/* ---------- 侧栏底部的保存状态 ---------- */
+
+.save-state {
+    font-size: 11.5px;
+    color: var(--ink-3);
+    min-height: 15px;
+    padding: 0 7px;
+}
+
+.save-state.is-error {
+    color: var(--danger);
+}
+
+.save-state.is-busy {
+    color: var(--accent);
+}
+
+/* 建库卡片字段最多，默认的 1080×720 视口下会长过窗口。只给这一档收紧
+   纵向间距 —— 解锁卡片不动，它现在是居中且留白刚好的。
+   收紧后卡片总高要留在 m2-acceptance.sh「② 外壳几何」量的那条线以内
+   （盘面读数：容器可视高 720、上下留白各 28，所以卡片得压在 664 以下，
+   否则第一屏够不到「创建保险箱」）。加字段或改间距后先看那条断言。 */
+#lock-create {
+    padding: 24px 32px 18px;
+}
+
+#lock-create .lock-mark {
+    margin-bottom: 10px;
+}
+
+#lock-create .field {
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+#lock-create .hint {
+    margin-top: 3px;
+}
+
+/* 强度条紧贴上面的密码框。默认的 margin-top: 7px 叠在 .field 的 gap 上，
+   会多出一截空档。 */
+#lock-create .field .meter {
+    margin-top: 0;
+}

@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "最小权限集：自定义命令 + 文件选择器 + 在访达中显示。不放开 fs / shell（PRD R3）—— dialog 只把用户选中的路径交回来，文件的读写仍走 src/vault.rs 的命令；opener 也只放 reveal 一条，不放 open-url / open-path",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "opener:allow-reveal-item-in-dir"
+  ]
+}

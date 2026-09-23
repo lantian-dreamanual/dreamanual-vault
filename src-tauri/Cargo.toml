@@ -1,0 +1,56 @@
+[package]
+name = "dreamanual-vault"
+version = "1.0.0"
+edition = "2021"
+description = "Dreamanual 密码管理 · macOS 桌面密码管理器"
+rust-version = "1.86"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["macos-private-api"] }
+# F1.3「打开其他库」与 F6.1「导出」要原生文件选择器。
+# 权限只放 open / save 两条，没放 fs —— 文件的读写仍走 vault.rs 的命令，
+# 插件只负责把用户选中的路径交回来。
+tauri-plugin-dialog = "2"
+# 「在访达中显示」。装它是因为「库文件到底在磁盘的哪个位置」这件事，
+# 界面上只给一行路径不足以让人找到 —— 用户会去 Finder 里翻，
+# 而 ~/Library 默认是隐藏的，翻不到就会以为文件丢了。
+# 权限同样只放一条 reveal，不放 open-url / open-path。
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 库文件与前端之间走 base64 交换，理由见 src/vault.rs 顶部
+base64 = "0.22"
+# 历史版本的文件名要 `YYYYMMDD-HHmm` 的**本地时间**。
+# 标准库只有 UTC 时间戳，自己算时区要解析 /etc/localtime。
+# chrono 本来就在依赖树里（Tauri 的传递依赖），加为直接依赖不引入新的编译单元。
+# 只要时钟，不要 serde / 老式时间支持这些用不上的特性。
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+# 自动锁定要判断「系统是不是已经锁屏 / 会话切走了」。读的是
+# CGSessionCopyCurrentDictionary 的返回值，只用到 CFDictionary / CFBoolean / CFString 三个包装。
+# 这个 crate 本来就在依赖树里（Tauri 的传递依赖），加为直接依赖不引入新的编译单元。
+# 应用只跑在 macOS 上（PRD §8.1），所以不做平台条件编译。
+core-foundation = "0.10"
+# 剪贴板定时清除要读 NSPasteboard 的 changeCount、到点了调 clearContents。
+# 只用到这一个类，就按需开它这一个 feature（NSPasteboard 自己会带上它需要的
+# objc2-foundation 那几个）。这两个 crate 本来就在依赖树里（Tauri 的传递依赖），
+# 加为直接依赖不引入新的编译单元。
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSPasteboard"] }
+
+[dev-dependencies]
+# 只给单测用：把菜单的加速键字符串自己解析一遍。
+# Tauri 内部是 `accelerator.and_then(|s| s.as_ref().parse().ok())`，
+# 解析失败会被静默换成 None —— 菜单项还在、快捷键没了，且没有任何报错。
+# 要断言「解析得动、并且落到那个键上」，就得直接拿到 muda 的 Accelerator 类型。
+# muda 本来就在依赖树里（Tauri 的传递依赖），加为 dev 依赖不引入新的编译单元。
+muda = "0.19"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
