@@ -146,15 +146,18 @@ async function backToLock(): Promise<void> {
 
 // ------------------------------------------------------------------ 写库
 
-/** 编辑弹窗对「新建」留空 id、「编辑」沿用原 id，所以按 id 有没有值分流 */
+/** 编辑弹窗对「新建」留空 id、「编辑」沿用原 id，所以按 id 有没有值分流。
+ *  新建走 `reveal()`：详情切到新条目上，别停在原来那条。 */
 function saveEntry(entry: VaultEntry): void {
+    let created: VaultEntry | null = null;
     try {
         if (entry.id) store.updateEntry(entry);
-        else store.addEntry(entry);
+        else created = store.addEntry(entry);
     } catch (err) {
         toast(errorText(err), 2600);
     }
-    vault.refresh();
+    if (created) vault.reveal(created.id);
+    else vault.refresh();
 }
 
 async function removeEntry(entry: VaultEntry): Promise<void> {

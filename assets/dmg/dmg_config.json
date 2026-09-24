@@ -1,0 +1,32 @@
+{
+  "title": "Dreamanual 密码管理",
+  "background": "dmg_background.png",
+  "icon-size": 80,
+  "format": "UDZO",
+  "window": {
+    "size": {
+      "width": 660,
+      "height": 400
+    }
+  },
+  "contents": [
+    {
+      "x": 180,
+      "y": 170,
+      "type": "file",
+      "path": "../../src-tauri/target/release/bundle/macos/Dreamanual 密码管理.app"
+    },
+    {
+      "x": 480,
+      "y": 170,
+      "type": "link",
+      "path": "/Applications"
+    },
+    {
+      "x": 330,
+      "y": 300,
+      "type": "file",
+      "path": "安装说明.txt"
+    }
+  ]
+}

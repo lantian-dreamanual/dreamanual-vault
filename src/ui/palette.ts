@@ -11,7 +11,7 @@
  * 改一个分类要右键两次、开两次形态不同的窗。 */
 
 import { DOT_COLORS, isDotColor } from '../vault/model';
-import { escapeHtml, isComposing } from './dom';
+import { escapeHtml, isComposing, onBackdropClose } from './dom';
 
 export interface GroupDraft {
     name: string;
@@ -109,6 +109,9 @@ export function groupDialog(options: GroupDialogOptions): Promise<GroupDraft | u
             }
         }
 
+        // 点遮罩关窗走 `onBackdropClose`：拖选文字拖出面板、抬在遮罩上时
+        // click 目标恰好是遮罩，只判 `target === mask` 会把面板误关。
+        onBackdropClose(mask, () => finish(undefined));
         mask.addEventListener('click', (ev) => {
             const target = ev.target as HTMLElement;
             const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
@@ -117,7 +120,7 @@ export function groupDialog(options: GroupDialogOptions): Promise<GroupDraft | u
                 submit();
                 return;
             }
-            if (target === mask || role === 'cancel') {
+            if (role === 'cancel') {
                 finish(undefined);
                 return;
             }

@@ -3,7 +3,7 @@
  * 只负责产出 VaultEntry，落库交给调用方。
  * 新建时 id 留空 —— KDBX 的条目 UUID 由库自己生成，界面不预设。 */
 
-import { isComposing, must, toast } from '../ui/dom';
+import { isComposing, must, onBackdropClose, toast } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { passwordScore, randomPassword } from '../ui/password';
 import type { VaultEntry } from '../vault/model';
@@ -82,9 +82,9 @@ export class EntryEditor {
         must('#editor-close').addEventListener('click', () => this.close());
         must('#editor-cancel').addEventListener('click', () => this.close());
 
-        this.mask.addEventListener('click', (ev) => {
-            if (ev.target === this.mask) this.close();
-        });
+        // 点遮罩关窗要走 `onBackdropClose`：只判 `ev.target === this.mask` 的话，
+        // 在弹窗里拖选文字拖到遮罩上抬起，click 目标恰好是遮罩，弹窗会被误关。
+        onBackdropClose(this.mask, () => this.close());
 
         this.saveBtn.addEventListener('click', () => this.commit());
 

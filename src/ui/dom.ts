@@ -80,6 +80,28 @@ export function toggleClass(node: HTMLElement, name: string, on: boolean): void 
  * 两个条件都判：`isComposing` 是标准属性；`keyCode === 229`（旧接口）是给不发前者的
  * 输入法留的兜底 —— 那种输入法在组合态只报 229。少判一个就会漏掉一部分输入法。
  */
+/**
+ * 「点遮罩关窗」，并挡掉拖选误触。
+ *
+ * `click` 的事件目标是**按下与抬起两处节点的共同祖先** —— 在弹窗里按下、拖着选字
+ * 一直拖到遮罩上抬起，共同祖先恰好是遮罩自己，`ev.target === mask` 成立，弹窗就被
+ * 当成「点了外面」关掉，正在选的内容与未保存的输入一起丢掉。
+ *
+ * 判据因此改成：**按下那一刻就在遮罩上**，才算真的点了外面。四个弹窗
+ * （条目编辑、确认框、输入框、分类/调色板面板）共用这一份。
+ */
+export function onBackdropClose(mask: HTMLElement, close: () => void): void {
+    let downOnMask = false;
+    mask.addEventListener('pointerdown', (ev) => {
+        downOnMask = ev.target === mask;
+    });
+    mask.addEventListener('click', (ev) => {
+        const hit = ev.target === mask && downOnMask;
+        downOnMask = false;
+        if (hit) close();
+    });
+}
+
 export function isComposing(ev: KeyboardEvent): boolean {
     return ev.isComposing || ev.keyCode === 229;
 }

@@ -630,6 +630,29 @@ export class VaultView {
         this.renderAll();
     }
 
+    /** 新建落库后把列表选中与详情切到新条目上。
+     *
+     *  当前筛选（分类 / 搜索）看不见它时先撤掉筛选 —— 不撤的话它不在 `visible()`
+     *  里，`selected()` 会退回第一行，详情根本换不过去。条目建在二级分组时
+     *  `normalizeGroup()` 会把分类拉回「全部分类」，条目仍然可见，选中照常生效。 */
+    reveal(id: string): void {
+        const entry = this.entries().find((e) => e.id === id);
+        if (!entry) {
+            this.renderAll();
+            return;
+        }
+        if (!this.visible().some((e) => e.id === id)) {
+            this.activeGroup = entry.group;
+            this.query = '';
+            this.searchEl.value = '';
+        }
+        this.selectedId = id;
+        this.renderAll();
+        // 焦点跟着走：新行落在列表深处时 `focus()` 顺手把它滚进视野，
+        // 键盘用户也能从这一行继续 Tab。
+        this.focusItem(id);
+    }
+
     currentGroup(): string {
         return this.activeGroup;
     }

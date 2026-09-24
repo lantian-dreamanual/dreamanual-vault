@@ -13,6 +13,7 @@
     "app:build": "tauri build --no-bundle",
     "app:bundle": "tauri build --bundles app",
     "app:install": "bash scripts/install-app.sh",
+    "dmg": "bash scripts/build-dmg.sh",
     "app:release": "tauri build --bundles app && bash scripts/install-app.sh"
   },
   "devDependencies": {

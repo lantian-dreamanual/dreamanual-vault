@@ -2,7 +2,7 @@
    自建而不用 window.confirm：WebView 的原生 confirm 在 macOS 上是网页样式，
    与应用其余部分割裂。 */
 
-import { escapeHtml, isComposing } from './dom';
+import { escapeHtml, isComposing, onBackdropClose } from './dom';
 import { icons } from './icons';
 
 export interface ConfirmOptions {
@@ -47,9 +47,11 @@ export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
             }
         }
 
+        // 点遮罩关窗要走 `onBackdropClose`：拖选文字拖出弹窗抬起在遮罩上，
+        // click 目标恰好是遮罩，只判 `target === mask` 会把弹窗误关。
+        onBackdropClose(mask, () => finish(false));
         mask.addEventListener('click', (ev) => {
             const target = ev.target as HTMLElement;
-            if (target === mask) finish(false);
             const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
             if (role === 'ok') finish(true);
             if (role === 'cancel') finish(false);
@@ -139,9 +141,9 @@ export function promptDialog(options: PromptOptions): Promise<string | null> {
             }
         }
 
+        onBackdropClose(mask, () => finish(null));
         mask.addEventListener('click', (ev) => {
             const target = ev.target as HTMLElement;
-            if (target === mask) finish(null);
             const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
             if (role === 'ok') submit();
             if (role === 'cancel') finish(null);
@@ -271,9 +273,9 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
             }
         }
 
+        onBackdropClose(mask, () => finish(null));
         mask.addEventListener('click', (ev) => {
             const target = ev.target as HTMLElement;
-            if (target === mask) finish(null);
             const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
             if (role === 'ok') submit();
             if (role === 'cancel') finish(null);
