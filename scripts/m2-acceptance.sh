@@ -55,6 +55,7 @@ fi
 # 永远算不完，`vault.open()` 的 Promise 不 settle。脚本会静默挂住（没有报错、
 # 没有输出，只有看门狗把进程杀掉）。这里提前判掉，换成一句能立刻照做的提示。
 . "$HERE/scripts/preflight-screen.sh"
+keep_awake "$@"
 require_screen_usable || exit 1
 
 pass=0

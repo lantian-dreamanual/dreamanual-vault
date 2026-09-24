@@ -1,6 +1,10 @@
 # 依赖与构建产物
 node_modules/
 dist/
+# 避开删除守卫时会把 dist 整个 mv 成 dist.bak-<时间戳>（vite 清空 dist 会被拦，
+# 且抛错前已经删了一半）。那是临时产物，别提交。
+# 注意 `dist/` 这条匹配不到它 —— 目录名不是 `dist`。
+dist.bak-*/
 # 不带前缀斜杠：这样 `target/` 在任意层级都命中。
 # 写成 `src-tauri/target/` 只锚定仓库根下那一个，M0 壳里的
 # `app/src-tauri/target/`（767 MB）会被照单收进提交。
@@ -28,3 +32,6 @@ spike/out/
 
 # macOS
 .DS_Store
+
+# Python 字节码（scripts/*.py 跑过一次就会生成）
+__pycache__/

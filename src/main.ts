@@ -18,8 +18,9 @@ import './styles/views.css';
 
 import { isComposing, must, toast } from './ui/dom';
 import { clockTime, vaultDisplayName } from './ui/format';
-import { confirmDialog, promptDialog } from './ui/confirm';
+import { confirmDialog } from './ui/confirm';
 import { contextMenu, type MenuItem } from './ui/menu';
+import { groupDialog, type GroupDraft } from './ui/palette';
 import { argon2SelfTest } from './vault/argon2';
 import { describeEngine, installArgon2, isArgon2Installed, type EngineInfo } from './vault/kdbx';
 import {
@@ -41,7 +42,7 @@ import {
     vaultDefaultPath
 } from './host';
 import { VaultStore } from './vault/store';
-import type { VaultEntry } from './vault/model';
+import { DOT_COLORS, type VaultEntry } from './vault/model';
 import { runAcceptance } from './dev/accept';
 import { MemorySession } from './dev/memory';
 import { DEMO_ENTRIES, DEMO_GROUPS } from './dev/seed';
@@ -112,8 +113,9 @@ const vault = new VaultView(store, {
     onEditEntry: (entry) => editor.openEdit(entry),
     onDeleteEntry: (entry) => void removeEntry(entry),
     onNewGroup: () => void newGroup(),
-    onRenameGroup: (name) => void renameGroup(name),
-    onDeleteGroup: (name) => void deleteGroup(name)
+    onEditGroup: (name) => void editGroup(name),
+    onDeleteGroup: (name) => void deleteGroup(name),
+    onReorderGroups: (names) => reorderGroups(names)
 });
 
 const editor = new EntryEditor({
@@ -170,26 +172,26 @@ async function removeEntry(entry: VaultEntry): Promise<void> {
 
 // ------------------------------------------------------------------ 分类
 
-/** 问一个分类名。重名当场拦下，不合规不让提交。
- *  「新建分类」有两个入口（侧栏的 + 与编辑弹窗下拉的末项），名字怎么问只该有一份。 */
-async function askGroupName(): Promise<string | null> {
-    return promptDialog({
-        title: '新建分类',
-        label: '分类名',
-        placeholder: '例如：服务器',
-        confirmText: '创建',
-        validate: (value) => (store.groups().includes(value) ? `分类「${value}」已经存在` : null)
+/** 分类面板。三个入口（侧栏的 +、编辑弹窗下拉的末项、右键「编辑分类…」）共用一份 ——
+ *  名字与颜色怎么问只该有一处。`from` 为空表示新建。 */
+async function askGroup(from: string | null): Promise<GroupDraft | undefined> {
+    return groupDialog({
+        title: from ? '编辑分类' : '新建分类',
+        name: from ?? '',
+        color: from ? (store.groupColors()[from] ?? null) : null,
+        validate: (value) =>
+            value !== from && store.groups().includes(value) ? `分类「${value}」已经存在` : null
     });
 }
 
 async function newGroup(): Promise<void> {
-    const name = await askGroupName();
-    if (!name) return;
+    const draft = await askGroup(null);
+    if (!draft) return;
 
     try {
-        store.createGroup(name);
-        vault.selectGroup(name);
-        toast(`已新建分类「${name}」`);
+        const created = store.createGroup(draft.name, draft.color);
+        vault.selectGroup(created);
+        toast(`已新建分类「${created}」`);
     } catch (err) {
         toast(errorText(err), 2600);
     }
@@ -201,11 +203,11 @@ async function newGroup(): Promise<void> {
  *  弹窗还开着，把侧栏筛选切到新分类会在背后换掉列表 —— 用户按取消的话，
  *  界面已经跟打开弹窗前不是同一个样子了。 */
 async function createGroupForEditor(): Promise<string | null> {
-    const name = await askGroupName();
-    if (!name) return null;
+    const draft = await askGroup(null);
+    if (!draft) return null;
 
     try {
-        const created = store.createGroup(name);
+        const created = store.createGroup(draft.name, draft.color);
         toast(`已新建分类「${created}」`);
         return created;
     } catch (err) {
@@ -214,20 +216,29 @@ async function createGroupForEditor(): Promise<string | null> {
     }
 }
 
-async function renameGroup(from: string): Promise<void> {
-    const name = await promptDialog({
-        title: `重命名「${from}」`,
-        label: '新的分类名',
-        value: from,
-        validate: (value) =>
-            value !== from && store.groups().includes(value) ? `分类「${value}」已经存在` : null
-    });
-    if (!name || name === from) return;
+/** 右键「编辑分类…」：名称与颜色在同一个面板里改完。
+ *
+ *  旧色在打开面板**之前**读，面板关掉之后按「真的改过哪一项」分别提示 ——
+ *  只改了颜色却提示「已改名为…」会让人以为名字也被动过。 */
+async function editGroup(from: string): Promise<void> {
+    const was = store.groupColors()[from] ?? null;
+    const draft = await askGroup(from);
+    if (!draft) return;
+
+    const renamed = draft.name !== from;
+    const recolored = draft.color !== was;
+    // 两处都没动就什么都不写、也不提示：打开面板又原样保存不是一次改动。
+    if (!renamed && !recolored) return;
 
     try {
-        store.renameGroup(from, name);
-        vault.selectGroup(name);
-        toast(`已改名为「${name}」`);
+        const final = store.updateGroup(from, draft.name, draft.color);
+        if (renamed) vault.selectGroup(final);
+        vault.refresh();
+
+        if (renamed && recolored) toast(`已更新分类「${final}」`);
+        else if (renamed) toast(`已改名为「${final}」`);
+        else if (draft.color) toast('已设置颜色');
+        else toast('已改回自动色');
     } catch (err) {
         toast(errorText(err), 2600);
     }
@@ -252,6 +263,17 @@ async function deleteGroup(name: string): Promise<void> {
     } catch (err) {
         toast(errorText(err), 2600);
     }
+}
+
+/** 拖拽改序的结果。落库失败时把侧栏拉回真实顺序 —— 界面是照拖动后的样子画的，
+ *  不重画的话，用户看到的顺序与库里存的对不上。 */
+function reorderGroups(names: string[]): void {
+    try {
+        store.reorderGroups(names);
+    } catch (err) {
+        toast(errorText(err), 2600);
+    }
+    vault.refresh();
 }
 
 // ------------------------------------------------------------------ 锁定
@@ -507,6 +529,41 @@ function costOf(fn: () => void): number {
 
 const round = (n: number): number => Math.round(n * 100) / 100;
 
+/** 截图演示态用的分类配色。取值是 `DOT_COLORS` 的下标，不写十六进制 ——
+ *  色板只有一个来源，这里再抄一份就会在色板调整之后与门禁悄悄分叉。
+ *  下标越界时 `setGroupColor()` 会抛「不在可选色板里」，是响的，不会静默无色。 */
+/** 演示态里每个分类配一个色。**有几个分类就要配几个** —— 漏掉的那个退回
+ *  `groupColor()` 的哈希色，撞上已配好的色只是概率问题：第一版漏了「云服务」，
+ *  它的自动色恰好也是蓝，侧栏里两个分类看上去一样，像功能出了问题。 */
+const DEMO_CAT_COLORS: Array<[string, number]> = [
+    ['服务器', 7], // 蓝
+    ['数据库', 8], // 紫
+    ['办公', 4], // 绿
+    ['未分类', 2], // 黄
+    ['云服务', 6] // 青
+];
+
+/** 截图演示态：给几个分类配上自定义颜色，并给一个与名称序不同的顺序。
+ *
+ *  走 `store.session()` 直接改，**不用 `store.setGroupColor()`** —— 后者会
+ *  `touch()` 进而写盘，而截图用的是 `/Users/Shared` 下那个演示库：
+ *  写进去之后下一轮 03 / 04 两张图就会拍到与这一轮不同的颜色，
+ *  同一份脚本两次跑出来的图不一致。会话是公开的，绕开写盘正是这里要的。 */
+function demoCategories(): void {
+    const api = store.session();
+    const groups = api.groups();
+
+    for (const [name, index] of DEMO_CAT_COLORS) {
+        if (groups.includes(name)) api.setGroupColor(name, DOT_COLORS[index]);
+    }
+
+    // 顺序必须是当前分类集合的一个排列，少一个多一个都会让 `reorderGroups()` 抛错
+    const first = DEMO_CAT_COLORS.map(([name]) => name).filter((n) => groups.includes(n));
+    api.reorderGroups([...first, ...groups.filter((g) => !first.includes(g))]);
+
+    vault.refresh();
+}
+
 /** 自检会来回切视图，跑完要还原到「这一次启动本该停在的地方」。
  *
  *  `settings` 标记落在这里。曾经漏了这一步：自检末尾无条件收起面板，
@@ -524,6 +581,54 @@ function restoreInitialState(flags: string[]): void {
     if (flags.includes('editor')) {
         const sample = store.entries()[0];
         if (sample) editor.openEdit(sample);
+    }
+
+    // `cats` 换成自定义颜色 + 自定义顺序。分类圆点的颜色与排序都落在侧栏，
+    // 不换这一下的话主视图截图里看到的永远是自动色与名称序。
+    if (flags.includes('cats')) demoCategories();
+
+    // `palette` 打开分类面板。它盖在窗口中央，主视图截图同样看不见 ——
+    // 与 `editor` 标记同一个道理。标记名沿用 `palette`：面板的前身是只选颜色的
+    // 取色面板，扩成「名称 + 颜色」之后名字没跟着改，图名也是同一个词。
+    if (flags.includes('palette')) {
+        const first = store.groups()[0];
+        if (first) void editGroup(first);
+    }
+
+    // `focus` 给列表第一行挂上焦点环。这张图要证两件事：环画得出来、
+    // 而且没被列表这个滚动容器裁掉 —— 第一行贴着 `overflow` 的上边界，
+    // 是整屏里最容易被切的位置，所以要拍它而不是中间某一行。
+    //
+    // **这里不真的去聚焦。** 环靠 `:focus-visible` 画，而 WKWebView 在窗口不是
+    // 当前应用时根本不匹配它：`document.activeElement` 明确落在行上、
+    // `getComputedStyle` 读出来的 outline 也是 2px solid 强调色，环就是不画。
+    // 截图脚本从 shell 里起进程，macOS 不把前台交给它；应用自己
+    // `NSApplication.activate()` 也要不到（试过，返回 Ok 而 `hasFocus` 仍是 false）。
+    // 而每跑一次截图就把窗口抢到人前面，正在干活的人会被挤下去 —— 为一张图付这个
+    // 代价不对等，那条路已经删掉了（见 src-tauri/src/main.rs 里那段说明）。
+    //
+    // 所以改挂 `[data-ring]`：它与 `:focus-visible` 写在 base.css 的同一份声明块里，
+    // 环的规格还是那一份，不新增第二处。**代价要说明白** ——
+    // 这张图不再证明「键盘走到这一行会出环」，那件事只能由人按一次 Tab 看：
+    // `:focus-visible` 认真实输入事件，合成键盘事件骗不过它。
+    //
+    // **不能只挂一次。** 列表在启动之后还会再重绘一次，重绘换掉那个元素。
+    // 所以挂个 observer：每有一次重绘，就在下一帧重新挂上。重绘停了它也就不再触发。
+    //
+    // ⚠️ 别拿「这张图与 03-vault 哈希不同」当环画出来的证据。两张图差的是侧栏材质
+    // （窗口活跃态不同，`followsWindowActiveState` 会变浅变深），列表那一列可以
+    // 逐字节相同而哈希照样不同。判据是 `shots.sh` 收尾那条：数列表列的差异像素。
+    if (flags.includes('focus')) {
+        const listEl = document.querySelector<HTMLElement>('#list');
+        const put = (): void => {
+            const row = listEl?.querySelector<HTMLElement>('.item');
+            if (row) row.setAttribute('data-ring', '');
+        };
+        put();
+        if (listEl) {
+            new MutationObserver(() => requestAnimationFrame(put))
+                .observe(listEl, { childList: true, subtree: true });
+        }
     }
 
     const settingsFlag = flags.find((f) => f === 'settings' || f.startsWith('settings:'));
@@ -691,7 +796,7 @@ async function selfCheck(
         };
         editor.close();
 
-        // 「＋ 新建分类…」那条路径要叠一层 `promptDialog`，而它建的遮罩同样是
+        // 「＋ 新建分类…」那条路径要叠一层分类面板，而它建的遮罩同样是
         // `.mask`、同样挂在 `document` 上听按键，并且**不拦事件、只收掉自己**。
         // 少了 `isTopmost()` 这道判断，在它上面按 Esc 会连编辑器一起关掉。
         //

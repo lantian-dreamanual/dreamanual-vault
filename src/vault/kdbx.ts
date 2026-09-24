@@ -36,7 +36,7 @@
 import type * as KdbxwebNs from 'kdbxweb';
 import { argon2ImplWebview } from './argon2';
 import { KDF_PRESETS, presetToKdfParams, type PresetName } from './kdf';
-import { UNCATEGORIZED, type VaultEntry } from './model';
+import { UNCATEGORIZED, isDotColor, type VaultEntry } from './model';
 import {
     VaultFormatError,
     WrongPasswordError,
@@ -136,6 +136,22 @@ const FIELD = {
     url: 'URL',
     notes: 'Notes'
 } as const;
+
+/**
+ * 分类颜色与自定义顺序存在**分组自己的扩展位**上（KDBX 的 Group → CustomData），
+ * 不另存一份配置文件：库走到哪，这两样跟到哪。
+ *
+ * 实测（`/tmp` 探针，三步）：kdbxweb 写进去 → 用 `keepassxc-cli mkdir` 逼
+ * KeePassXC 重存整个库 → kdbxweb 读回。两个键的原值都在，KeePassXC 只在同一个
+ * Map 里追加了它自己的 `_LAST_MODIFIED`。
+ *
+ * 写入形状有讲究：`customData` 是 `KdbxwebNs.KdbxCustomDataMap`（`Map<string, { value }>`），
+ * **不是普通对象**。直接给它加属性会挂在一个没用到的 Map 实例属性上，不报错、也不进库。
+ * 取 `?? new Map()` 时必须显式标注上这个类型，否则会退化成 `Map<any, any>` 把类型错误吃掉。
+ * 跨客户端存活性由 `spike/interop.mjs` 的 C7 守（KeePassXC 重存之后原值仍在）。
+ */
+const GROUP_COLOR_KEY = 'DreamanualColor';
+const GROUP_ORDER_KEY = 'DreamanualOrder';
 
 /** 写字段。密码走 ProtectedValue —— KDBX 要求受保护字段在内存中也是加密的，
  *  明文只应该出现在界面要显示的那一刻。 */
@@ -274,6 +290,9 @@ export class VaultSession implements VaultSessionApi {
         return this.db.meta.name ?? '';
     }
 
+    /** 真库总能写盘。内存假库那份是 `false` —— 见 `VaultSessionApi.persistable` 的注释。 */
+    readonly persistable = true;
+
     /**
      * 改库名。
      *
@@ -335,14 +354,92 @@ export class VaultSession implements VaultSessionApi {
         return uuid ? this.db.getGroup(uuid) : undefined;
     }
 
-    /** 分类列表（不含回收站）。按名称排序，与列表的排序口径一致。 */
-    groups(): string[] {
+    /** 这一组写过的自定义顺序。没写过返回 null。 */
+    private orderOf(group: KdbxwebNs.KdbxGroup): number | null {
+        const raw = group.customData?.get(GROUP_ORDER_KEY)?.value;
+        if (raw === undefined || raw === '') return null;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    /** 分类的显示顺序。
+     *
+     *  **任何一组带自定义顺序，就整体按它排**；一组都没带就退回按名称。
+     *  这样老库（从没拖过）的显示顺序与改动前逐字一致，只有拖过之后才切换口径。
+     *  没写过 Order 的组排在写过的之后，它们之间仍按名称 —— 新加的分类不会插到中间。
+     */
+    private sortGroups(list: KdbxwebNs.KdbxGroup[]): KdbxwebNs.KdbxGroup[] {
+        const byName = (a: KdbxwebNs.KdbxGroup, b: KdbxwebNs.KdbxGroup): number =>
+            (a.name ?? '').localeCompare(b.name ?? '', 'zh-Hans-CN');
+
+        if (!list.some((g) => this.orderOf(g) !== null)) return [...list].sort(byName);
+
+        return [...list].sort((a, b) => {
+            const oa = this.orderOf(a);
+            const ob = this.orderOf(b);
+            if (oa !== null && ob !== null) return oa - ob || byName(a, b);
+            if (oa !== null) return -1;
+            if (ob !== null) return 1;
+            return byName(a, b);
+        });
+    }
+
+    /** 顶层分组对象（不含回收站），已按显示顺序排好。 */
+    private groupList(): KdbxwebNs.KdbxGroup[] {
         const bin = this.recycleBin();
-        return this.root()
-            .groups.filter((g) => !bin || !g.uuid.equals(bin.uuid))
+        return this.sortGroups(this.root().groups.filter((g) => !bin || !g.uuid.equals(bin.uuid)));
+    }
+
+    /** 分类列表（不含回收站）。顺序见 `sortGroups()`。 */
+    groups(): string[] {
+        return this.groupList()
             .map((g) => g.name ?? '')
-            .filter(Boolean)
-            .sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+            .filter(Boolean);
+    }
+
+    /** 分类名 → 自定义颜色。只有设过的分类在表里，其余走 `groupColor()` 的自动色。 */
+    groupColors(): Record<string, string> {
+        const out: Record<string, string> = {};
+        for (const g of this.groupList()) {
+            const value = g.customData?.get(GROUP_COLOR_KEY)?.value;
+            if (g.name && value && isDotColor(value)) out[g.name] = value;
+        }
+        return out;
+    }
+
+    /** 设置分类颜色。传 `null` 表示清掉自定义值、退回自动色。
+     *
+     *  只收色板里的值：圆点压在侧栏毛玻璃上，色板是按那个底选出来的，
+     *  放进任意色值就没人能保证它还看得见。 */
+    setGroupColor(name: string, color: string | null): void {
+        const target = this.groupByName(name);
+        if (!target) throw new Error(`找不到分类「${name}」`);
+        if (color !== null && !isDotColor(color)) throw new Error('这个颜色不在可选色板里');
+
+        const map: KdbxwebNs.KdbxCustomDataMap = target.customData ?? new Map();
+        if (color === null) map.delete(GROUP_COLOR_KEY);
+        else map.set(GROUP_COLOR_KEY, { value: color });
+        target.customData = map;
+    }
+
+    /** 按给定的分类名顺序重排。
+     *
+     *  入口是侧栏的拖拽，而拖拽只改得动看得见的那几行 —— 传进来的名字必须与当前
+     *  分类集合**严格对齐**：少一个就等于把那个分类踢到最后，多一个说明界面拿的是
+     *  上一版快照。两种情况都直接抛，调用方刷新界面重来，不静默挪动。 */
+    reorderGroups(names: string[]): void {
+        const current = this.groups();
+        const wanted = names.filter((n) => current.includes(n));
+        if (wanted.length !== current.length || new Set(wanted).size !== wanted.length) {
+            throw new Error('排序请求与当前分类对不上，已放弃');
+        }
+
+        wanted.forEach((name, i) => {
+            const target = this.groupByName(name)!;
+            const map: KdbxwebNs.KdbxCustomDataMap = target.customData ?? new Map();
+            map.set(GROUP_ORDER_KEY, { value: String(i + 1) });
+            target.customData = map;
+        });
     }
 
     hasGroup(name: string): boolean {

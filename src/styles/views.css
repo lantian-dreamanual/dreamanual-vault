@@ -252,6 +252,8 @@
     margin-bottom: 1px;
     width: 100%;
     text-align: left;
+    /* 拖拽改序时不要顺手选中分类名。这一行是可拖的，而拖动起点常常正落在文字上。 */
+    user-select: none;
 }
 
 .cat:hover {
@@ -296,6 +298,71 @@
     border-radius: 50%;
     flex: none;
     margin-left: 3px;
+}
+
+/* 分类行的拖拽态。拖动中那一行就停在松手后的位置上，所以只说明「正在拖」：
+   半透明表示它跟着指针走，光标切成抓握。 */
+.cats.is-sorting .cat {
+    cursor: grabbing;
+}
+
+.cat.is-dragging {
+    opacity: 0.55;
+}
+
+/* 分类面板里的色格。
+   色值由内联的 `--sw` 给（来自 model.ts 的 DOT_COLORS），不在样式表里写死 ——
+   色板只有一个来源，对比度门禁也从那一个来源读。 */
+.palette {
+    display: flex;
+    flex-wrap: wrap;
+    /* 8px：11 格（自动 + 10 色）正好在面板可用宽里排成一行。
+       间距再大一点就会折成 9 + 2，第二行只有两格，看着像漏了东西。 */
+    gap: 8px;
+    /* 上下留白交给 `.field` 的 gap —— 色板现在长在字段里，自带 padding 会让
+       「分类名」与「颜色」两行的间距比别处大一截。 */
+    padding: 0;
+}
+
+/* 分类面板里色板那一行是最后一个字段，贴着底部按钮，不留 `.field` 默认的下边距。 */
+.palette-field {
+    margin-bottom: 0;
+}
+
+.palette-sw {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--sw);
+    box-shadow: 0 0 0 1px var(--line);
+    transition: 0.12s;
+}
+
+.palette-sw:hover {
+    box-shadow: 0 0 0 1px var(--ink-3);
+}
+
+.palette-sw.is-on {
+    box-shadow:
+        0 0 0 2px var(--panel),
+        0 0 0 4px var(--accent);
+}
+
+/* 「跟随自动」那一格：空心圈，表示这个分类不指定颜色、按名称取自动色 */
+.palette-sw.is-auto {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px var(--ink-3);
+}
+
+.palette-sw.is-auto:hover {
+    box-shadow: inset 0 0 0 1px var(--ink-2);
+}
+
+.palette-sw.is-auto.is-on {
+    box-shadow:
+        inset 0 0 0 1px var(--ink-2),
+        0 0 0 2px var(--panel),
+        0 0 0 4px var(--accent);
 }
 
 /* 底栏只放「现在开的是哪个库」与两个全局动作。 */
@@ -484,10 +551,10 @@
     -webkit-appearance: none;
 }
 
+/* 与 `.inp` 同：聚焦只改底色与边框，环走 base.css 那条通用规则。 */
 .search:focus {
     background: var(--panel);
     border-color: var(--accent-line);
-    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .search-clear {
@@ -519,10 +586,13 @@
     letter-spacing: 0.03em;
 }
 
+/* 左右各 8px、顶部 4px 的留白是给焦点环的：这是滚动容器，`overflow` 会把子元素
+   画到边界外的 `outline` 裁掉。环外扩 4px（2px 间隙 + 2px 环），留白比它大一点
+   才不会在首行与左右两侧被切。 */
 .list {
     flex: 1;
     overflow-y: auto;
-    padding: 0 8px 12px;
+    padding: 4px 8px 12px;
 }
 
 .item {
@@ -699,15 +769,10 @@ mark {
 }
 
 /* 可复制的字段行。它们可聚焦 —— ⌘C「复制当前字段」的「当前」就是焦点所在的那一行。
-   焦点环只在键盘走到时出现（`:focus-visible`）：用鼠标点一下行是看内容，
-   弹出一个环只会显得碍事。 */
+   焦点环走 base.css 那条通用规则（时机取 `:focus-visible`）：用鼠标点一下行是看
+   内容，弹出一个环只会显得碍事。这里的 `border-radius` 留着，outline 要跟着它转。 */
 .row.is-copyable {
     border-radius: 8px;
-}
-
-.row.is-copyable:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .row-k {
@@ -896,17 +961,41 @@ select.srow-ctl {
     color: inherit;
     text-align: left;
     cursor: pointer;
+    /* 悬停底色要跟着父级 `.srow` 的圆角走。父级只在该行是 last-of-type 时
+       才带下圆角，直接写死 8px 会在别的分组里溢出圆角外。 */
+    border-radius: inherit;
+    transition: background 0.12s;
 }
 
-.srow-hit:hover .srow-k b,
-.srow-hit:hover .srow-chev {
+/* 「请我喝杯咖啡」：咖啡图标与文字常态就是强调色 —— 设置页里只有这一个
+   「支持作者」入口，要一眼扫得到，不用等鼠标划过来才亮。
+   `.srow-k b` 那边不另写颜色，让它继承这里的 —— 两处各写一份色值，
+   下次改色就只改了一处。这一对的对比度在 spike/contrast.mjs 里登记着。 */
+.srow-lead {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: var(--accent-2);
 }
 
-/* 右侧那个箭头表示「点了会离开本应用」，与「展开/收起」的 chevron 不是一回事 */
+.srow-ic {
+    flex: none;
+}
+
+.srow-hit:hover {
+    background: var(--panel-2);
+}
+
+/* 右侧那个箭头表示「点了会离开本应用」，与「展开/收起」的 chevron 不是一回事。
+   它不跟着咖啡一起常亮：常态中性、划过来才变蓝 —— 「一进页面就是蓝的」说的是
+   「这是赞赏入口」，「划过才蓝的」说的是「点了会跳出去」，两件事。 */
 .srow-chev {
     flex: none;
     color: var(--ink-3);
+}
+
+.srow-hit:hover .srow-chev {
+    color: var(--accent-2);
 }
 
 /* 只读的值（「当前版本」那一格）。等宽数字，版本号从 v1.0.0 变成 v1.10.0 时那列不会左右跳 */
@@ -1003,8 +1092,14 @@ select.srow-ctl {
     transform: translateX(18px);
 }
 
+/* 开关是通用焦点环的例外：它的 input 是 `opacity: 0`，环得画在滑块（`i`）上。
+   规格与 base.css 那条保持一致（同样写成 longhand），两处不同的话键盘走到开关上
+   会看出不是同一个东西。 */
 .switch input:focus-visible + i {
-    box-shadow: 0 0 0 3px var(--focus-ring);
+    outline-width: 2px;
+    outline-style: solid;
+    outline-color: var(--accent-2);
+    outline-offset: 2px;
 }
 
 /* ---------- 右键菜单（分类的重命名 / 删除） ---------- */

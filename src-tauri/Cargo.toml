@@ -38,6 +38,9 @@ core-foundation = "0.10"
 # objc2-foundation 那几个）。这两个 crate 本来就在依赖树里（Tauri 的传递依赖），
 # 加为直接依赖不引入新的编译单元。
 objc2 = "0.6"
+# 只用 `NSPasteboard`（剪贴板到点清除那步读 `changeCount`）。
+# 曾经多开过 `NSApplication`，给 `focus` 开发标记激活窗口用 —— 那条路已删，
+# 截图不该把正在干活的人挤下去。别再往这里加它。
 objc2-app-kit = { version = "0.3", features = ["NSPasteboard"] }
 
 [dev-dependencies]

@@ -364,9 +364,16 @@ export class VaultStore {
         const api = this.api;
         if (!api) return;
 
-        // 浏览器预览没有文件可写。内存会话的改动本来就在内存里，
-        // 这里记一次「已保存」让界面状态保持一致，而不是把预览卡在报错上。
-        if (!IN_TAURI) {
+        // 浏览器预览没有文件可写；内存预览（解锁失败后退到的那份假库）也不能写。
+        //
+        // 后一条不只是「没有文件可写」那么简单：假库的 `toBytes()` 是**空**的，
+        // 而 `vault_save` 的形状是「先把现有文件存成历史版本、再把新字节原子写进去」。
+        // 所以真让它写一次，主库会被换成一个 0 字节文件，而那份好文件进了历史目录 ——
+        // 看上去像「文件坏了」，实际是这条链自己合拢的。
+        //
+        // 内存会话的改动本来就在内存里，这里记一次「已保存」让界面状态保持一致，
+        // 而不是把预览卡在报错上。
+        if (!IN_TAURI || !api.persistable) {
             this.savedAt = Date.now();
             this.saveState = 'saved';
             this.backup = null;
@@ -406,9 +413,15 @@ export class VaultStore {
         this.saveState = 'saved';
     }
 
-    /** 强制把当前内容写到另一个路径（F6.1 导出）。不影响主库的写入目标。 */
+    /** 强制把当前内容写到另一个路径（F6.1 导出）。不影响主库的写入目标。
+     *
+     *  内存预览拒绝导出：那份假库 `toBytes()` 是空的，导出去只会得到一个 0 字节文件，
+     *  而用户会以为「导出了一份备份」。 */
     async exportTo(path: string): Promise<number> {
         const api = this.session();
+        if (!api.persistable) {
+            throw new Error('内存预览里的库不能导出 —— 它没有可写出的内容');
+        }
         return vaultWrite(await api.toBytes(), path);
     }
 
@@ -600,8 +613,11 @@ export class VaultStore {
         return moved;
     }
 
-    createGroup(name: string): string {
+    /** 建分类。`color` 只有分类面板会传 —— 一次面板提交只该产生一次库改动：
+     *  分成「先建、再设色」两次调用会让写盘循环多轮转一份历史版本。 */
+    createGroup(name: string, color: string | null = null): string {
         const created = this.session().createGroup(name);
+        if (color) this.session().setGroupColor(created, color);
         this.touch();
         return created;
     }
@@ -610,6 +626,21 @@ export class VaultStore {
         const renamed = this.session().renameGroup(from, to);
         this.touch();
         return renamed;
+    }
+
+    /** 改分类：名称与颜色一次提交，返回最终的名字。
+     *
+     *  只写**真的改过**的那一项。两处都没动就直接返回 —— 面板打开又原样保存
+     *  不该产生一次库改动。两处都动时合成一次，理由同 `createGroup`。 */
+    updateGroup(from: string, name: string, color: string | null): string {
+        const renamed = name !== from;
+        const was = this.groupColors()[from] ?? null;
+        if (!renamed && was === color) return from;
+
+        const final = renamed ? this.session().renameGroup(from, name) : from;
+        if (was !== color) this.session().setGroupColor(final, color);
+        this.touch();
+        return final;
     }
 
     /** 改库名。侧栏底栏那行跟着变 —— `refreshVaultLabel()` 已经挂在订阅上，不用另接线。 */
@@ -624,10 +655,27 @@ export class VaultStore {
         this.touch();
     }
 
+    /** 设置分类颜色（`null` = 退回自动色）。颜色存在分组扩展位上，跟着库走。 */
+    setGroupColor(name: string, color: string | null): void {
+        this.session().setGroupColor(name, color);
+        this.touch();
+    }
+
+    /** 拖拽改序。顺序同样存在分组扩展位上 —— 拖过之后这个库就按它排。 */
+    reorderGroups(names: string[]): void {
+        this.session().reorderGroups(names);
+        this.touch();
+    }
+
     // ------------------------------------------------------------ 便捷查询
 
     groups(): string[] {
         return this.api ? this.api.groups() : [];
+    }
+
+    /** 分类名 → 自定义色。只有设过的分类在表里，其余走 `groupColor()` 的自动色。 */
+    groupColors(): Record<string, string> {
+        return this.api ? this.api.groupColors() : {};
     }
 
     entries(): VaultEntry[] {

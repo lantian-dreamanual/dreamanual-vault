@@ -20,12 +20,16 @@ import {
 } from '../vault/model';
 import type { VaultStore } from '../vault/store';
 import { clipboardArm, reportError } from '../host';
-import { escapeHtml, highlight, must, toast } from '../ui/dom';
+import { escapeHtml, highlight, isComposing, must, toast } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { contextMenu, type MenuItem } from '../ui/menu';
 import { randomPassword } from '../ui/password';
 
 export const ALL_GROUP = '全部';
+
+/** 分类行拖拽的位移阈值（像素）。小于它的位移当作一次点击 ——
+ *  分类行本来就是按钮，触控板或鼠标的轻微抖动不该把它变成一次排序。 */
+const DRAG_THRESHOLD = 4;
 
 /**
  * 详情栏里三个可复制字段的名字。**导出是给验收脚本用的** ——
@@ -49,8 +53,11 @@ export interface VaultHooks {
     onEditEntry: (entry: VaultEntry) => void;
     onDeleteEntry: (entry: VaultEntry) => void;
     onNewGroup: () => void;
-    onRenameGroup: (name: string) => void;
+    /** 打开分类面板。名称与颜色在同一个框里改，所以这里只递分类名、不分两项。 */
+    onEditGroup: (name: string) => void;
     onDeleteGroup: (name: string) => void;
+    /** 拖完分类行的结果顺序（不含「全部」）。名字缺一个都会被 store 拒绝。 */
+    onReorderGroups: (names: string[]) => void;
 }
 
 export class VaultView {
@@ -73,6 +80,15 @@ export class VaultView {
      * 存下来的元素会变成游离节点，读它的 `dataset` 读到的是上一版的值。
      */
     private currentField: string | null = null;
+    /** 分类行的拖拽态。`null` = 没在拖。 */
+    private drag: { name: string; y0: number; moved: boolean } | null = null;
+    /**
+     * 吃掉拖拽松手之后紧跟的那一次 click。
+     *
+     * 松手时浏览器仍会按「按下的位置」补一次 click，而分类行是按钮 —— 不清掉的话，
+     * 拖完顺序会顺手把筛选切到刚拖的那个分类上。
+     */
+    private swallowClick = false;
 
     private catsEl = must('#cats');
     private listEl = must('#list');
@@ -124,6 +140,26 @@ export class VaultView {
         return this.entries().find((e) => e.id === id);
     }
 
+    /** 选中一条并重绘。鼠标那一下 click 与键盘的回车走同一份 ——
+     *  分成两处的话，改了一边另一边会悄悄不同。 */
+    private selectItem(id: string | null): void {
+        this.selectedId = id;
+        this.renderList();
+        this.renderDetail();
+    }
+
+    /** 把焦点还给刚选中的那一行。`selectItem()` 重建的是 `innerHTML`，
+     *  焦点会掉回 body —— 不还回去的话，键盘用户每选一条都要从头 Tab 一遍。
+     *  遍历比对 `dataset.id` 而不拼选择器：条目 id 里出现引号或方括号是可能的。 */
+    private focusItem(id: string): void {
+        for (const el of this.listEl.querySelectorAll<HTMLElement>('.item')) {
+            if (el.dataset.id === id) {
+                el.focus();
+                return;
+            }
+        }
+    }
+
     // ---------------------------------------------------------------- 渲染
 
     /** 改动落库之后整屏重绘。由 main.ts 在数据变化后调用。 */
@@ -140,6 +176,7 @@ export class VaultView {
 
     private renderCats(): void {
         const counts = this.store.groupCounts();
+        const colors = this.store.groupColors();
         const total = this.entries().length;
 
         const row = (name: string, count: number, dot: string | null): string => {
@@ -157,11 +194,12 @@ export class VaultView {
         this.catsEl.innerHTML =
             `<div class="cats-label"><span>分类</span>` +
             `<button class="cats-add" id="cats-new" type="button" title="新建分类" aria-label="新建分类">` +
-            `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>` +
+            icons.plus(11) +
             `</button></div>` +
             row(ALL_GROUP, total, null) +
             this.groups()
-                .map((g) => row(g, counts.get(g) ?? 0, groupColor(g)))
+                // 设过色的走库里存的那个值，没设过的按名称算 —— 后者在分类多于 10 个时会撞色
+                .map((g) => row(g, counts.get(g) ?? 0, colors[g] ?? groupColor(g)))
                 .join('');
     }
 
@@ -174,11 +212,15 @@ export class VaultView {
                 : `<div class="empty">这个分类还是空的</div>`;
         } else {
             const current = this.selected();
+            // 条目行可聚焦。列表是这个应用的主界面，键盘 Tab 能走到分类行和各个
+            // 按钮，却走不到列表行的话，那段路就断在这里。
+            // `role="button"` 是说给读屏的：它得知道这一行能被敲下去，
+            // 不然「可聚焦」只意味着多一个停留点。
             this.listEl.innerHTML = list
                 .map((e) => {
                     const on = current && e.id === current.id ? ' on' : '';
                     return (
-                        `<div class="item${on}" data-id="${e.id}">` +
+                        `<div class="item${on}" data-id="${e.id}" tabindex="0" role="button">` +
                         `<div class="ava">${highlight(entryInitial(e), this.query)}</div>` +
                         `<div class="item-main">` +
                         `<div class="item-title">${highlight(e.title, this.query)}</div>` +
@@ -262,6 +304,12 @@ export class VaultView {
 
     private wire(): void {
         this.catsEl.addEventListener('click', (ev) => {
+            // 刚拖完的那一次点击不当事（见 swallowClick 的注释）
+            if (this.swallowClick) {
+                this.swallowClick = false;
+                return;
+            }
+
             const target = ev.target as HTMLElement;
 
             // 分类标题行那个 +。走委托而不是给按钮挂监听：renderCats() 每次
@@ -278,6 +326,32 @@ export class VaultView {
             this.renderAll();
         });
 
+        // 分类行拖拽改序。用 pointer 事件自实现，不用 HTML5 拖拽：
+        // 合成的 PointerEvent 能驱动这条链路（验收里要真按一遍），而 HTML5 拖拽
+        // 既要一个真的 DataTransfer，又会带出 WebKit 自己的拖拽幽灵图。
+        //
+        // 监听挂到 window 上而不是容器上：指针拖出侧栏（拖到列表列、甚至窗口边缘）
+        // 时仍要收到 move 与 up，否则会卡在「正在拖」的状态里。
+        this.catsEl.addEventListener('pointerdown', (ev) => {
+            this.swallowClick = false;
+
+            const row = (ev.target as HTMLElement).closest<HTMLElement>('.cat[data-group]');
+            const name = row?.dataset.group;
+            // 「全部」是伪分类，不参与排序；右键与中键不拾起
+            if (!name || name === ALL_GROUP || ev.button !== 0) return;
+
+            this.drag = { name, y0: ev.clientY, moved: false };
+
+            const onMove = (move: PointerEvent): void => this.dragMove(move);
+            const onUp = (): void => {
+                window.removeEventListener('pointermove', onMove);
+                window.removeEventListener('pointerup', onUp);
+                this.dragEnd();
+            };
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onUp);
+        });
+
         this.catsEl.addEventListener('contextmenu', (ev) => {
             ev.preventDefault();
             const pos = { x: ev.clientX, y: ev.clientY };
@@ -290,7 +364,7 @@ export class VaultView {
             }
 
             const items: MenuItem[] = [
-                { label: '重命名分类…', onPick: () => this.hooks.onRenameGroup(name) }
+                { label: '编辑分类…', onPick: () => this.hooks.onEditGroup(name) }
             ];
             if (name !== UNCATEGORIZED) {
                 items.push({ label: '删除分类', danger: true, onPick: () => this.hooks.onDeleteGroup(name) });
@@ -301,9 +375,21 @@ export class VaultView {
         this.listEl.addEventListener('click', (ev) => {
             const item = (ev.target as HTMLElement).closest<HTMLElement>('.item');
             if (!item) return;
-            this.selectedId = item.dataset.id ?? null;
-            this.renderList();
-            this.renderDetail();
+            this.selectItem(item.dataset.id ?? null);
+        });
+
+        // 条目行的键盘激活。回车与空格都能按下去，走的是上面 mouse 那一下的同一份逻辑。
+        this.listEl.addEventListener('keydown', (ev) => {
+            if (isComposing(ev)) return;
+            if (ev.key !== 'Enter' && ev.key !== ' ') return;
+
+            const item = (ev.target as HTMLElement).closest<HTMLElement>('.item');
+            if (!item) return;
+            ev.preventDefault();
+
+            const id = item.dataset.id ?? null;
+            this.selectItem(id);
+            if (id) this.focusItem(id);
         });
 
         this.listEl.addEventListener('contextmenu', (ev) => {
@@ -314,9 +400,7 @@ export class VaultView {
             const entry = this.find(node.dataset.id);
             if (!entry) return;
 
-            this.selectedId = entry.id;
-            this.renderList();
-            this.renderDetail();
+            this.selectItem(entry.id);
 
             contextMenu({ x: ev.clientX, y: ev.clientY }, [
                 { label: '编辑', onPick: () => this.hooks.onEditEntry(entry) },
@@ -384,6 +468,69 @@ export class VaultView {
         this.detailEl.addEventListener('pointerdown', (ev) => this.noteField(ev.target));
 
         this.searchClearEl.addEventListener('click', () => this.clearSearch());
+    }
+
+    /**
+     * 拖拽中：按指针的纵向位置把行挪到该在的位置。
+     *
+     * 直接改 DOM 顺序，不先算一份数据再重画 —— 拖动过程中每按一下重画，行的节点
+     * 引用就全失效了，指针还按着的那一行会跟着消失。松手时再读一遍 DOM 顺序提交。
+     */
+    private dragMove(ev: PointerEvent): void {
+        const drag = this.drag;
+        if (!drag) return;
+
+        if (!drag.moved) {
+            if (Math.abs(ev.clientY - drag.y0) < DRAG_THRESHOLD) return;
+            drag.moved = true;
+            this.catsEl.classList.add('is-sorting');
+            this.rowOf(drag.name)?.classList.add('is-dragging');
+        }
+
+        const el = this.rowOf(drag.name);
+        if (!el) return;
+
+        const others = Array.from(this.catsEl.querySelectorAll<HTMLElement>('.cat[data-group]')).filter(
+            (r) => r !== el && r.dataset.group !== ALL_GROUP
+        );
+
+        // 落在「第一个中点低于指针」的那一行之前；没有这样的行就放到末尾
+        const next = others.find((r) => {
+            const box = r.getBoundingClientRect();
+            return ev.clientY < box.top + box.height / 2;
+        });
+        if (next) this.catsEl.insertBefore(el, next);
+        else this.catsEl.appendChild(el);
+    }
+
+    /** 松手：读过一遍 DOM 顺序交给调用方落库。没移动过就当作一次点击。 */
+    private dragEnd(): void {
+        const drag = this.drag;
+        this.drag = null;
+        if (!drag) return;
+
+        this.catsEl.classList.remove('is-sorting');
+        this.rowOf(drag.name)?.classList.remove('is-dragging');
+
+        if (!drag.moved) return;
+        this.swallowClick = true;
+
+        const names = Array.from(this.catsEl.querySelectorAll<HTMLElement>('.cat[data-group]'))
+            .map((r) => r.dataset.group ?? '')
+            .filter((n) => n && n !== ALL_GROUP);
+        this.hooks.onReorderGroups(names);
+    }
+
+    /** 按分类名找侧栏那一行。
+     *
+     *  遍历比对 `dataset.group` 而不是拼选择器：`data-group` 里的名字经过 HTML
+     *  转义（`&` 写成 `&amp;`），用 `CSS.escape` 拼出来的选择器会查不到含这些字符的名字。 */
+    private rowOf(name: string): HTMLElement | null {
+        return (
+            Array.from(this.catsEl.querySelectorAll<HTMLElement>('.cat[data-group]')).find(
+                (r) => r.dataset.group === name
+            ) ?? null
+        );
     }
 
     private async copy(value: string): Promise<void> {

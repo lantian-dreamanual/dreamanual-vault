@@ -6,7 +6,7 @@
 # 的 dev_flags）。
 #
 # 用法：
-#   ./scripts/shots.sh                 # 截全部 7 张
+#   ./scripts/shots.sh                 # 截全部 10 张
 #   WAIT=8 ./scripts/shots.sh          # 机器慢时多等一会
 #   ./scripts/shots.sh 03-vault        # 只截某一张
 #
@@ -42,6 +42,7 @@ PW="${VAULT_DEV_PASSWORD:-correct horse battery staple 上海}"
 # 锁屏时 WebView 的页面进程会被系统挂起，应用起得来但永远到不了可截图的形态。
 # 与其等满 30 秒窗口预算再报「没找到窗口」，不如在这里一句话说清。
 . "$HERE/scripts/preflight-screen.sh"
+keep_awake "$@"
 require_screen_usable || exit 1
 
 # 视图名@开发标记@库状态
@@ -62,6 +63,17 @@ require_screen_usable || exit 1
 #
 # `editor` 打开第一条目的编辑弹窗。改动落在弹窗里的时候主视图截图看不见它。
 #
+# `cats` 把分类换成自定义颜色 + 自定义顺序（PRD 附录 U）。不换这一下，
+# 侧栏里看到的永远是 `groupColor()` 的自动色与名称序，改了颜色与拖拽那一版
+# 与上一版截出来逐字节相同 —— 等于没验。
+#
+# `palette` 打开分类面板（名称与颜色同框）。它盖在窗口中央，主视图截图同样看不见它。
+#
+# `focus` 把键盘焦点落到列表第一行上，拍的是焦点环本身。这一张验两件看不住的事：
+# 环有没有画出来、以及有没有被列表这个滚动容器裁掉 —— 第一行贴着 `overflow`
+# 的上边界，是整屏里最容易被切的位置。
+# 收尾那条判据会拿它与 03-vault 比**列表列**：逐字节相同就判失败（见文件末尾）。
+#
 # 分隔符用 @ 而不是冒号：开发标记自己带冒号（settings:data），
 # 用冒号分段会把它切开，结果是「滚到数据那一组」静默失效。
 VIEWS=(
@@ -72,12 +84,19 @@ VIEWS=(
     "05-settings-data@unlocked,settings:data@ready"
     "06-settings-data-external@unlocked,settings:data@external"
     "07-editor@unlocked,seed,editor@ready"
+    "08-cats@unlocked,seed,cats@ready"
+    "09-palette@unlocked,seed,cats,palette@ready"
+    "10-focus@unlocked,seed,focus@ready"
 )
 
-# 曾经试过再加一张 `08-settings-about`（滚到「关于」那一组）。它截出来与 05
+# 曾经试过再加一张「设置页滚到『关于』那一组」的图。它截出来与 05
 # **逐字节相同** —— 设置面板的内容高度只比窗口高一点点，两组滚到底停在同一个
 # 位置，那一屏本来就同时装着「数据」与「关于」。收尾那道重复门禁当场报了出来。
 # 判据与当初删掉「解锁页按库的来处分两张」时一致：没有信息增量的视图不留。
+#
+# 08 / 09 / 10 是分类颜色、拖拽顺序与焦点环那两轮加的。三张都不是复制出来的：
+# 08 的侧栏颜色与顺序与 03 不同，09 多一个盖在窗口上的分类面板，10 是键盘聚焦态 ——
+# 收尾那道逐字节重复门禁会替我们确认这一点，哪一张没信息增量它会当场报出来。
 
 if [ ! -x "$BIN" ]; then
     echo "找不到 ${BIN}"
@@ -246,6 +265,40 @@ if [ "$taken" -gt 0 ]; then
         failed=$((failed + 1))
         echo "  [失败] 有图与别的图逐字节相同 —— 它没有验证任何东西："
         shasum -a 256 "$OUT_DIR"/*.png | awk -v h="$dup_hash" '$1 == h {printf "      %s\n", $2}'
+    fi
+fi
+
+# ------------------------------------------------------------------ 焦点环
+
+# `10-focus` 与 `03-vault` 之间只该差一件事：前者的列表第一行挂着焦点环
+# （开发标记 `focus` 给那一行挂 `data-ring`，环由 base.css 那条规则画；
+# 为什么不真的聚焦，见 src/main.ts 里那段说明 —— 那会要求抢前台，代价不对等）。
+# 所以**列表列**必须不同 —— 逐字节相同就说明环根本没画，这张图什么都没验。
+#
+# 判据收窄到列表列，不能用整幅哈希。侧栏材质跟着窗口活跃态走
+# （`followsWindowActiveState`），活跃与不活跃会差到 (71,73,75) 与 (45,50,53)，
+# 整幅比永远「不同」。之前拿整幅哈希当判据，把「环没画」读成了「环画了」，
+# 而且一读就是一整轮 —— 列表那一列当时是逐字节相同的。
+#
+# 这条判据管不到的一件事，写在这里免得被当成已经验过：**用键盘走到某一行会不会
+# 出环**它测不了（`:focus-visible` 认真实输入事件，合成的骗不过）。那件事只能由人
+# 按一次 Tab 看。
+#
+# 列号取 `--sider-w`（CSS px）× 2（Retina）。侧栏宽度改了这个边界跟着改，
+# 免得判据悄悄扫进侧栏、把材质噪声当成环。CSS 里取不到时退回 496（= 248 × 2）。
+if { [ -z "$only" ] || [ "$only" = "10-focus" ]; } &&
+    [ -f "$OUT_DIR/10-focus.png" ] && [ -f "$OUT_DIR/03-vault.png" ]; then
+    sider_css="$(sed -n 's/.*--sider-w: *\([0-9]\+\).*/\1/p' src/styles/tokens.css | head -1)"
+    xmin=$(( ${sider_css:-248} * 2 ))
+    ring_diff="$("$PYTHON" scripts/png-diff.py "$OUT_DIR/10-focus.png" "$OUT_DIR/03-vault.png" "$xmin" || echo 0)"
+    if [ "${ring_diff:-0}" -gt 0 ] 2>/dev/null; then
+        echo "  [通过] 10-focus 的列表列与 03-vault 不同（x ≥ ${xmin} 处 ${ring_diff} 个像素）—— 焦点环画出来了"
+    else
+        failed=$((failed + 1))
+        echo "  [失败] 10-focus 的列表列与 03-vault 逐字节相同 —— 焦点环没画出来，这张图什么都没验"
+        echo "      先确认 dist 重建过（改前端后要跑 npm run app:build），再查两处："
+        echo "        main.ts 的 focus 标记有没有给第一行挂上 data-ring（列表启动后还会重绘一次）"
+        echo "        base.css 的 :focus-visible / [data-ring] 那条规则还在不在"
     fi
 fi
 

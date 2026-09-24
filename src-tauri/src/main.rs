@@ -169,6 +169,17 @@ fn main() {
                     Ok(()) => println!("[boot] 窗口外观：已钉成深色"),
                     Err(e) => eprintln!("[boot] 钉窗口外观失败：{e}"),
                 }
+                // 这里曾经挂过一段「带 `focus` 标记就把应用激活到前台」，为的是让
+                // `10-focus` 那张图拍出焦点环。已删，两个理由：
+                //
+                // ① 它没起作用。截图的进程是从 shell 起的，`activate()` 返回 Ok、
+                //    `set_focus()` 也 Ok，`document.hasFocus()` 照样 false —— 环还是
+                //    没画出来。
+                // ② 就算起作用也不划算。跑一次截图把窗口抢到人前面，正在干活的人
+                //    被挤下去。换来的东西（一张焦点环截图）不值这个代价。
+                //
+                // 环现在由前端的 `[data-ring]` 画（见 src/main.ts 的 `focus` 标记
+                // 与 base.css 的那条规则）。**不要再往这里加要前台的代码。**
             }
             let _ = std::io::stdout().flush();
             // 两个计时线程都放在 Rust 侧：前端的定时器会被 WKWebView 节流，

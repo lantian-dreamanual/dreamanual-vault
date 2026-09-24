@@ -74,9 +74,27 @@ export interface VaultSessionApi {
     /** 库名。与 KDBX 顶层分组的名字同源，改它要两个字段一起写 —— 见 `renameVault()`。 */
     readonly name: string;
 
+    /**
+     * 这个会话能不能被写进磁盘。
+     *
+     * 真库里是 `true`；`src/dev/memory.ts` 那份内存假库是 `false`。
+     *
+     * 为什么要在契约上写死这件事：内存假库的 `toBytes()` 返回的是**空** `ArrayBuffer`，
+     * 而写盘链路的形状是「先存一份历史版本、再原子写入」。于是一旦有一次保存落到
+     * 内存假库上，主库会被**替换成一个 0 字节文件**，那份好文件反而进了历史目录。
+     * 这条链不需要谁做错事就会自己合拢 —— 界面解锁失败退到内存会话之后，
+     * 任何一次保存就够了（例如离开检测触发的 `lock()` 里第一句「先把改动写下去」）。
+     *
+     * 必填而不是可选：将来再加一种会话实现，编译器会要求它明确表态，
+     * 而不是因为忘了写就默认落在「可以写盘」那一侧。
+     */
+    readonly persistable: boolean;
+
     header(): HeaderInfo;
-    /** 分类列表，不含回收站 */
+    /** 分类列表，不含回收站。顺序：拖过的库按自定义顺序，没拖过的按名称 */
     groups(): string[];
+    /** 分类名 → 自定义颜色。只有设过的分类在表里，其余走 `groupColor()` 的自动色 */
+    groupColors(): Record<string, string>;
     /** 全部条目，不含回收站 */
     entries(): VaultEntry[];
     /** 回收站里的条目数 */
@@ -111,6 +129,10 @@ export interface VaultSessionApi {
     renameGroup(from: string, to: string): string;
     /** 分类下的条目移入「未分类」 */
     removeGroup(name: string): void;
+    /** 设置分类颜色。传 `null` 清掉自定义值、退回自动色。只收色板里的值 */
+    setGroupColor(name: string, color: string | null): void;
+    /** 按给定的分类名顺序重排。名字必须与当前分类集合严格对齐，否则抛错 */
+    reorderGroups(names: string[]): void;
 
     /** 序列化成 KDBX 字节。写到哪由调用方决定。 */
     toBytes(): Promise<ArrayBuffer>;

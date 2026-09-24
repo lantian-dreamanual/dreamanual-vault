@@ -8,7 +8,10 @@
  * 分档（按 WCAG 2.1 AA）：
  *   text   4.5:1  正文与控件文字，含字号偏小的字段标签、按钮、tag
  *   large  3.0:1  大字（≥24px，或 ≥18.66px 且 ≥700 字重）
- *   ui     3.0:1  承载信息的图形：强度条填充、分类圆点、开关滑块
+ *   ui     3.0:1  承载信息的图形：强度条填充、开关滑块
+ *
+ * 分类圆点**不在这三档里**，它另有一条更严的断言（4.0:1）—— 圆点压在侧栏毛玻璃上，
+ * 而那个底色不是令牌，取不到就进不了 PAIRS 表。逐格读数见下面的「分类圆点」一节。
  *
  * `large` 这一档目前没有组合落在里头：解锁页标题 19px / 650 字重，按标准仍算
  * 正文（大字线要 700 字重或 24px）。留着是为了量到它时不用改分档表。
@@ -100,6 +103,32 @@ function readSiderOverrides() {
     return varsIn(blockOf(css, '.sider {'));
 }
 
+// ----------------------------------------------------------------- 分类圆点色板
+
+/** 色板门槛。比 WCAG 非文本的 3:1 留一档：圆点只有 6px，面积小、又是唯一区分分类的线索。 */
+const DOT_MIN = 4.0;
+
+/**
+ * `#33383b`：侧栏材质的实测中位数，圆点绝大多数时候压在这个底上。
+ *
+ * 这是本脚本唯一一个不在 tokens.css 里的颜色，理由与 PAIRS 里那两条侧栏组合相同
+ * （材质底色不是令牌）。读数出自 `scripts/a3-probe.sh` 那次的整屏截图：
+ * 窗口 x0=390 / y0≈212，取侧栏 496 像素宽的中位数；同一次测量里详情面板的中位数
+ * 正好等于 `--panel`，说明取样位置是准的。改侧栏材质（`windowEffects`）后要重量。
+ */
+const SIDER_MATERIAL = '#33383b';
+
+/** 分类圆点色板：从 `src/vault/model.ts` 的 `DOT_COLORS` 现读，不在本脚本里再抄一份。 */
+function readDotColors() {
+    const ts = fs.readFileSync(path.join(SRC, 'vault', 'model.ts'), 'utf8');
+    const at = ts.indexOf('export const DOT_COLORS');
+    if (at < 0) return [];
+    const open = ts.indexOf('[', at);
+    const close = ts.indexOf(']', open);
+    if (open < 0 || close < 0) return [];
+    return [...ts.slice(open, close).matchAll(/#[0-9a-fA-F]{6}/g)].map((m) => m[0].toLowerCase());
+}
+
 // ----------------------------------------------------------------- 待检组合
 
 /**
@@ -122,6 +151,8 @@ const PAIRS = [
     { fg: '--ink-3', bg: '--panel-3', tier: 'text', where: '.pill 的文字、.icon-btn 悬停面' },
     { fg: '--accent', bg: '--panel', tier: 'text', where: '.save-state.is-busy 之类的强调文字、选中态的 .cat / .item' },
     { fg: '--accent-2', bg: '--accent-soft', tier: 'text', where: '选中的分类、.detail-ava、.tag-cat、.pill.ok' },
+    { fg: '--accent-2', bg: '--panel', tier: 'text', where: '「请我喝杯咖啡」的咖啡图标与文字（设置页 .srow-lead 常亮强调色）' },
+    { fg: '--accent-2', bg: '--panel-2', tier: 'text', where: '同一行悬停时（.srow-hit:hover 把底色换成 --panel-2）' },
     { fg: '--danger', bg: '--panel', tier: 'text', where: '.lock-msg、.ctxmenu 危险项、.save-state.is-error' },
     { fg: '--danger', bg: '--danger-soft', tier: 'text', where: '.btn-danger 与 .pill.bad' },
     { fg: '--danger', bg: '--danger-hover', tier: 'text', where: '.btn-danger 悬停、危险菜单项悬停' },
@@ -159,16 +190,16 @@ const ALLOWED_HEX = [
         hex: '#d1d7df',
         reason: '侧栏 --ink-2 覆盖值。侧栏底色是 macOS 材质（不是令牌），只能在 .sider 作用域里另给，理由见该处注释与 scripts/a3-probe.sh'
     },
-    { file: 'src/vault/model.ts', hex: '#2563eb', reason: '分类圆点色板，10 个一组循环取色' },
-    { file: 'src/vault/model.ts', hex: '#0891b2', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#0f9d63', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#ca8a04', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#dc2626', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#7c3aed', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#db2777', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#0d9488', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#ea580c', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#4f46e5', reason: '同上' }
+    { file: 'src/vault/model.ts', hex: '#fb64b6', reason: '分类圆点色板（Tailwind v4 400 档，10 个一组），对比度断言见本脚本「分类圆点」一节' },
+    { file: 'src/vault/model.ts', hex: '#ff8904', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#fdc700', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#9ae600', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#05df72', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#00d5be', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#00d3f2', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#51a2ff', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#a684ff', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#ed6aff', reason: '同上' }
 ];
 
 // ----------------------------------------------------------------- 主流程
@@ -216,7 +247,44 @@ function main() {
         if (!ok) failed += 1;
     }
 
-    // ---- ③ 色值不外泄
+    // ---- ③ 分类圆点色板
+    //
+    // 圆点压在侧栏毛玻璃上，三类底各算一遍：材质底（多数时候）、悬停的 --panel-3、
+    // 选中行的 --accent-soft。判据取三者里最差的那一格。
+    console.log('\n  ── 分类圆点 ──');
+    const dots = readDotColors();
+    check(
+        'L1 色板',
+        '从 model.ts 解析出 10 个分类色',
+        dots.length === 10 && new Set(dots).size === 10,
+        dots.length ? dots.join(' ') : '一个都没解析到'
+    );
+
+    const dotBacks = [
+        { label: '侧栏材质（实测 ' + SIDER_MATERIAL + '）', rgb: parseHex(SIDER_MATERIAL) },
+        { label: '--panel-3 悬停', rgb: tokens['--panel-3'] },
+        { label: '--accent-soft 选中', rgb: tokens['--accent-soft'] }
+    ].filter((b) => b.rgb);
+
+    check('L2 圆点底色取到', '三类底都能取到（材质为实测量）', dotBacks.length === 3, dotBacks.map((b) => b.label).join(' · '));
+
+    if (dots.length && dotBacks.length === 3) {
+        let worst = { r: Infinity, dot: '', label: '' };
+        for (const dot of dots) {
+            for (const back of dotBacks) {
+                const r = ratio(parseHex(dot), back.rgb);
+                if (r < worst.r) worst = { r, dot, label: back.label };
+            }
+        }
+        check(
+            'L3 圆点对比度',
+            `分类圆点压在三类底上都 ≥ ${DOT_MIN}:1`,
+            worst.r + 1e-9 >= DOT_MIN,
+            `最差 ${worst.dot} on ${worst.label} = ${worst.r.toFixed(2)}:1`
+        );
+    }
+
+    // ---- ④ 色值不外泄
     console.log('\n  ── 色值来源 ──');
     const allowed = new Set(ALLOWED_HEX.map((a) => `${a.file}|${a.hex}`));
     const stray = [];
@@ -231,10 +299,88 @@ function main() {
             if (!allowed.has(`${rel}|${hex}`)) stray.push(`${rel} 的 ${hex}`);
         }
     }
-    check('L3 令牌之外无未登记的色值', 'tokens.css 之外出现的色值都能追到一条理由',
+    check('L4 令牌之外无未登记的色值', 'tokens.css 之外出现的色值都能追到一条理由',
         stray.length === 0, stray.length ? `未登记：${[...new Set(stray)].join('、')}` : '无');
 
-    // ---- ④ 汇总
+    // ---- ⑤ 焦点环
+    //
+    // 全应用共用 base.css 里那一条 `:focus-visible`。环是 `outline`，带 2px
+    // `outline-offset` —— offset 是这条判据能成立的前提：环画在元素**外面**，
+    // 压的是底，不是元素自身。少了它，环会直接盖在实心主按钮（--accent-fill）上，
+    // 蓝压蓝只有 1.79:1，键盘走一圈等于没有提示。
+    //
+    // 四类底取实际会出现的：面板、输入框底、悬停面、侧栏毛玻璃（实测量）。
+    console.log('\n  ── 焦点环 ──');
+    const ring = tokens['--accent-2'];
+    const ringBacks = [
+        { label: '--panel', rgb: tokens['--panel'] },
+        { label: '--panel-2', rgb: tokens['--panel-2'] },
+        { label: '--panel-3', rgb: tokens['--panel-3'] },
+        { label: '侧栏材质（实测 ' + SIDER_MATERIAL + '）', rgb: parseHex(SIDER_MATERIAL) }
+    ].filter((b) => b.rgb);
+
+    check(
+        'L5 焦点环底色取到',
+        '环色与四类底都能取到',
+        Boolean(ring) && ringBacks.length === 4,
+        ring ? `--accent-2 · ${ringBacks.length} 类底` : '取不到 --accent-2'
+    );
+
+    if (ring && ringBacks.length === 4) {
+        let worstRing = { r: Infinity, label: '' };
+        for (const back of ringBacks) {
+            const r = ratio(ring, back.rgb);
+            if (r < worstRing.r) worstRing = { r, label: back.label };
+        }
+        check(
+            'L6 焦点环对比度',
+            '焦点环压在四类底上都 ≥ 3:1（WCAG 1.4.11 非文本）',
+            worstRing.r + 1e-9 >= 3.0,
+            `最差 on ${worstRing.label} = ${worstRing.r.toFixed(2)}:1`
+        );
+    }
+
+    // ---- ⑥ 焦点环规格只能有一处（源码级判据）
+    //
+    // 「聚焦时环画没画出来」在应用内测不了：`:focus-visible` 由浏览器按「最近一次
+    // 交互是不是键盘」判定，而验收前面派发过合成的 `pointerdown`，之后一律不命中
+    // （详见 accept.ts 里那段说明）。但**规格是不是只有一处**在这里能查 ——
+    // 读的是源文件，Node 侧做得到。
+    //
+    // 允许两处：base.css 那条通用规则，与 views.css 里开关的例外
+    // （`.switch` 的 input 是 `opacity: 0`，环得画在滑块上）。
+    // 别处再冒出 outline 声明就该问一句为什么：多一处就多一个会分叉的地方。
+    console.log('\n  ── 焦点环规格 ──');
+    const ringSpots = [];
+    for (const file of walk(STYLES)) {
+        const rel = path.relative(ROOT, file);
+        const lines = fs.readFileSync(file, 'utf8').split('\n');
+        let lastHit = -10;
+        lines.forEach((line, i) => {
+            if (!/outline-(?:width|style|color|offset)\s*:/.test(line)) return;
+            // 相邻几行算同一处（一条规则的四句声明写成四行）
+            if (i - lastHit > 2) ringSpots.push(`${rel}:${i + 1}`);
+            lastHit = i;
+        });
+    }
+    check(
+        'L7 焦点环规格只有两处',
+        'base.css 的通用规则 + views.css 里开关的例外，别处不再自己写一份',
+        ringSpots.length === 2,
+        ringSpots.length ? ringSpots.join(' · ') : '一处都没找到（通用规则被删了？）'
+    );
+
+    // 旧令牌：那是个 18% 透明度的蓝，压在各类底上只有 1.05–1.27:1 ——
+    // 「写了但看不见」的本体。留着它，迟早有人再用一次。
+    const legacyRing = walk(SRC).filter((f) => /--focus-ring/.test(fs.readFileSync(f, 'utf8')));
+    check(
+        'L8 旧令牌已清掉',
+        '--focus-ring 不再出现在 src/ 里',
+        legacyRing.length === 0,
+        legacyRing.length ? legacyRing.map((f) => path.relative(ROOT, f)).join('、') : '无'
+    );
+
+    // ---- ⑦ 汇总
     const passed = results.filter((r) => r.ok).length;
     console.log(`\n结果：${passed} / ${results.length} 项通过`);
 

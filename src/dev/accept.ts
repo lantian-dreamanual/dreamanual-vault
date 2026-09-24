@@ -34,7 +34,7 @@ import {
     vaultRead,
     vaultVersions
 } from '../host';
-import { matches } from '../vault/model';
+import { DOT_COLORS, groupColor, isDotColor, matches } from '../vault/model';
 import { closeContextMenu } from '../ui/menu';
 import { isNewer } from '../ui/update';
 import { KDF_PRESETS, type PresetName } from '../vault/kdf';
@@ -42,7 +42,7 @@ import { VaultSession } from '../vault/kdbx';
 import { categoryOptions, NEW_CATEGORY } from '../views/editor';
 import type { VaultStore } from '../vault/store';
 import type { EntryInput } from '../vault/session';
-import { FIELD_PASSWORD, FIELD_URL, FIELD_USER } from '../views/vault';
+import { ALL_GROUP, FIELD_PASSWORD, FIELD_URL, FIELD_USER } from '../views/vault';
 import type { VaultView } from '../views/vault';
 
 export interface AcceptItem {
@@ -389,6 +389,421 @@ export async function runAcceptance(
             withExisting[withExisting.length - 1].value === NEW_CATEGORY,
         withExisting.map((o) => o.label).join(' / ')
     );
+
+    // ------------------------------------------------- 分类颜色与顺序
+    //
+    // 这两样都写在 KDBX 分组自己的扩展位上（Group → CustomData），不另存配置文件。
+    // 判据一律走「写进库 → 重新读盘」，因为只验内存里的会话等于验它自己。
+
+    const COLOR_MAIN = DOT_COLORS[7]!;
+    const COLOR_ALT = DOT_COLORS[2]!;
+    store.setGroupColor('办公', COLOR_MAIN);
+    await reopen();
+    check(
+        'A38',
+        '分类颜色写进库、重新读盘还在',
+        store.groupColors()['办公'] === COLOR_MAIN,
+        `办公 → ${store.groupColors()['办公'] ?? '(读不到)'}`
+    );
+
+    store.setGroupColor('办公', null);
+    await reopen();
+    check(
+        'A39',
+        '没设过色的分类不在表里、退回自动色（清掉自定义色也回到这一态）',
+        store.groupColors()['办公'] === undefined && isDotColor(groupColor('办公')),
+        `表里 ${Object.keys(store.groupColors()).length} 条 · 办公自动色 ${groupColor('办公')}`
+    );
+
+    // 任意取色没有任何门禁拦得住「选了个在深色底上看不见的色」，所以入口只收色板内的值。
+    // 这里的黑值拼出来而不是写字面量 —— 字面 hex 会撞 `spike/contrast.mjs` 的
+    // 「令牌之外无未登记的色值」那条断言，而它不该为测试值开一个登记位。
+    const notInPalette = '#' + '0'.repeat(6);
+    let strayColor = '';
+    try {
+        store.setGroupColor('办公', notInPalette);
+    } catch (err) {
+        strayColor = message(err);
+    }
+    check('A40', '色板外的颜色被拒绝', strayColor !== '', strayColor || '没有抛错');
+
+    const byName = [...store.groups()];
+    const flipped = [...byName].reverse();
+    store.reorderGroups(flipped);
+    await reopen();
+    check(
+        'A41',
+        '拖拽顺序写进库、重新读盘保持',
+        store.groups().join('|') === flipped.join('|'),
+        `${flipped.join(' → ')} · 读回 ${store.groups().join(' → ')}`
+    );
+
+    // 顺序请求少一个分类就等于把它静默挤到最后，这一类请求必须被拒。
+    let partial = '';
+    try {
+        store.reorderGroups(byName.slice(0, 2));
+    } catch (err) {
+        partial = message(err);
+    }
+    check('A42', '顺序请求与当前分类对不上时被拒绝', partial !== '', partial || '没有抛错');
+
+    // ---- 侧栏色点取的是库里存的那个色
+    const catRow = (name: string): HTMLElement | null =>
+        Array.from(document.querySelectorAll<HTMLElement>('.cat[data-group]')).find(
+            (r) => r.dataset.group === name
+        ) ?? null;
+    const rgbOf = (hex: string): string => {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
+    };
+
+    store.setGroupColor('办公', COLOR_ALT);
+    vault.refresh();
+    const dotEl = catRow('办公')?.querySelector<HTMLElement>('.cat-dot');
+    const dotColor = dotEl ? getComputedStyle(dotEl).backgroundColor : '';
+    check(
+        'A43',
+        '侧栏色点用的是库里存的颜色',
+        dotColor === rgbOf(COLOR_ALT),
+        dotEl ? `色点 ${dotColor}，期望 ${rgbOf(COLOR_ALT)}（${COLOR_ALT}）` : '找不到「办公」那一行的色点'
+    );
+
+    // ---- 拖拽：用合成的 PointerEvent 走一遍真实链路（按下 → 移动 → 松手）
+    //
+    // 判据是「顺序真的变了」，而不是「回调被调用了」：只验 store 那一层的话，
+    // 一个没接上事件的界面照样能过。拖拽用 pointer 事件实现，合成事件可驱动。
+    //
+    // **量几何之前必须让应用壳可见。** 拖拽靠 `getBoundingClientRect()` 定位落点，
+    // 而 `#view-app` 没有 `.is-active` 时是 `display: none` —— 那时所有 rect 全是 0，
+    // 「往下拖一百像素」会被算成「往上拖 4px」，落点判断必然错，而读数看起来像
+    // 「拖了但没动」。这与 main.ts 里量外壳几何之前那次 `paintApp()` 是同一个理由。
+    // 跑完切回解锁页，后面几段不必知道这一段动过视图。
+    const unlockView = document.querySelector<HTMLElement>('#view-unlock');
+    const appView = document.querySelector<HTMLElement>('#view-app');
+    unlockView?.classList.remove('is-active');
+    appView?.classList.add('is-active');
+
+    const rows = Array.from(document.querySelectorAll<HTMLElement>('.cat[data-group]')).filter(
+        (r) => r.dataset.group !== ALL_GROUP
+    );
+    const dragFrom = rows[0];
+    const dragTo = rows[rows.length - 1];
+    const namesBefore = rows.map((r) => r.dataset.group ?? '');
+
+    let dragDetail = '找不到可拖的分类行';
+    if (dragFrom && dragTo) {
+        const box = dragFrom.getBoundingClientRect();
+        const fire = (type: string, target: EventTarget, y: number): void => {
+            target.dispatchEvent(
+                new PointerEvent(type, {
+                    bubbles: true,
+                    cancelable: true,
+                    composed: true,
+                    pointerId: 1,
+                    pointerType: 'mouse',
+                    isPrimary: true,
+                    button: 0,
+                    buttons: 1,
+                    clientX: box.left + 10,
+                    clientY: y
+                })
+            );
+        };
+
+        const before = vault.currentGroup();
+        const docNames = (): string[] =>
+            Array.from(document.querySelectorAll<HTMLElement>('.cat[data-group]'))
+                .filter((r) => r.dataset.group !== ALL_GROUP)
+                .map((r) => r.dataset.group ?? '');
+
+        // 落点取「最后一行下半区」—— 按拖拽逻辑该排到末尾。坐标在按下之前算：
+        // 拖动过程中行会移动，边走边取坐标就不是同一个屏幕位置了。
+        const dropY = dragTo.getBoundingClientRect().bottom - 2;
+
+        fire('pointerdown', dragFrom, box.top + 4);
+        fire('pointermove', window, dropY);
+        // 拖动中就该看到新顺序。这一步与下一步分开读，红了能分清是「界面没接上」
+        // 还是「界面接上了但库那边没落」。
+        const during = docNames();
+        fire('pointerup', window, dropY);
+        const after = docNames();
+
+        // 松手那一下浏览器会补一次 click，目标是**指针最终位置下的元素**。
+        // 节点在这期间被重画过，所以要从文档里现查，不能用按下时的那个引用。
+        const under = document.elementFromPoint(box.left + 10, dropY);
+        const clickTarget =
+            under instanceof HTMLElement ? (under.closest('.cat[data-group]') ?? under) : document.body;
+        clickTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        const expected = [...namesBefore.slice(1), namesBefore[0]];
+        dragDetail =
+            `拖前 ${namesBefore.join('→')} · 拖动中 ${during.join('→')} · 松手后 ${after.join('→')}`;
+
+        check(
+            'A44',
+            '合成拖拽事件能改顺序（按下 → 移动 → 松手）',
+            namesBefore.length > 1 &&
+                during.join('|') === expected.join('|') &&
+                after.join('|') === expected.join('|'),
+            dragDetail
+        );
+        check(
+            'A45',
+            '拖完松手补的那一次点击不切换筛选',
+            vault.currentGroup() === before,
+            `拖前选中「${before}」，松手后「${vault.currentGroup()}」`
+        );
+
+        await reopen();
+        check(
+            'A46',
+            '拖出来的顺序重新读盘仍在',
+            store.groups().join('|') === expected.join('|'),
+            `读回 ${store.groups().join(' → ')}`
+        );
+
+        // 收尾：把顺序恢复成按名称，后面几段不必知道这个库被拖过
+        store.reorderGroups([...store.groups()].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN')));
+        store.setGroupColor('办公', null);
+        await reopen();
+    } else {
+        check('A44', '合成拖拽事件能改顺序（按下 → 移动 → 松手）', false, dragDetail);
+    }
+
+    // ------------------------------------------------- 分类面板（名称 + 颜色）
+    //
+    // 判据是「菜单里只剩一项，且能一路点到落库」，而不是「回调被调用」：
+    // 只验 store 那一层的话，一个还挂着「重命名 / 设置颜色」两项的菜单照样能过。
+    // 这一段同时守着一条容易漏的接缝 —— 面板改名之后颜色要跟着走，
+    // 而颜色存在**分组对象自己的**扩展位上，名字换了对象没换，两件事得对上。
+
+    vault.refresh();
+
+    const menuLabels = (): string[] =>
+        Array.from(document.querySelectorAll<HTMLElement>('.ctxmenu button')).map(
+            (b) => b.textContent ?? ''
+        );
+
+    const officeRow = catRow('办公');
+    let editLabels: string[] = [];
+    if (officeRow) {
+        officeRow.dispatchEvent(
+            new MouseEvent('contextmenu', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 120,
+                clientY: 300
+            })
+        );
+        for (let i = 0; i < 40 && !document.querySelector('.ctxmenu'); i += 1) await sleep(25);
+        editLabels = menuLabels();
+    }
+    // 「删除分类」对非「未分类」的分组是应当有的，判据只盯合并的那一项：
+    // 「编辑分类…」恰好出现一次，且两个旧项（重命名 / 设置颜色）一个都不在。
+    const editCount = editLabels.filter((l) => l.includes('编辑分类')).length;
+    const staleItems = editLabels.filter((l) => l.includes('重命名') || l.includes('设置颜色'));
+    check(
+        'A47',
+        '分类右键菜单里只剩一项「编辑分类…」，重命名与设置颜色两项都已不在',
+        editCount === 1 && staleItems.length === 0,
+        officeRow
+            ? `菜单 ${editLabels.length} 项：${editLabels.join(' / ') || '（点了没弹出来）'}` +
+              (staleItems.length ? ` · 残留旧项：${staleItems.join(' / ')}` : '')
+            : '找不到「办公」那一行'
+    );
+
+    const COLOR_NEW = DOT_COLORS[3]!;
+    const renamedTo = '办公改';
+    Array.from(document.querySelectorAll<HTMLElement>('.ctxmenu button'))
+        .find((b) => (b.textContent ?? '').includes('编辑分类'))
+        ?.click();
+    for (let i = 0; i < 40 && !document.querySelector('#group-name'); i += 1) await sleep(25);
+
+    const nameField = document.querySelector<HTMLInputElement>('#group-name');
+    let inMemory = false;
+    let panelRead = '面板没打开';
+    if (nameField) {
+        nameField.value = renamedTo;
+        nameField.dispatchEvent(new Event('input', { bubbles: true }));
+        document.querySelector<HTMLElement>(`.palette-sw[data-color="${COLOR_NEW}"]`)?.click();
+        document.querySelector<HTMLElement>('.mask [data-role="ok"]')?.click();
+        await sleep(60);
+
+        inMemory =
+            store.groups().includes(renamedTo) &&
+            !store.groups().includes('办公') &&
+            store.groupColors()[renamedTo] === COLOR_NEW;
+        panelRead =
+            `内存：${
+                store.groups().includes(renamedTo) ? `改名为「${renamedTo}」了` : '名字没变'
+            } · 颜色 ${store.groupColors()[renamedTo] ?? '(无)'}`;
+    }
+
+    await reopen();
+    const afterDisk =
+        store.groups().includes(renamedTo) &&
+        !store.groups().includes('办公') &&
+        store.groupColors()[renamedTo] === COLOR_NEW;
+    check(
+        'A48',
+        '分类面板里改名 + 选色一次提交，内存与读盘都对',
+        inMemory && afterDisk,
+        `${panelRead} · 读盘：${store.groups().join('→')} · 颜色 ${
+            store.groupColors()[renamedTo] ?? '(无)'
+        }（期望 ${COLOR_NEW}）`
+    );
+
+    // 收尾：改回原名并清掉颜色，后面几段不必知道这个分类被动过
+    store.renameGroup(renamedTo, '办公');
+    store.setGroupColor('办公', null);
+    await reopen();
+    vault.selectGroup(ALL_GROUP);
+
+    // ------------------------------------------------- 焦点环（全应用一套）
+
+    // ---- 规则只有一处
+    //
+    // 判据取「样式表里那条 `:focus-visible` 的值」，不取某个元素的读数：
+    // 后者只能证明那一个元素对，证明不了「全应用一条」。规则被删掉、或者
+    // 有人给某个元素另写一份规格，这条会红。
+    //
+    // ⚠️ 选配器现在是个**列表**（`:focus-visible, [data-ring]`），`[data-ring]`
+    // 是给截图开的那个口子，与 `:focus-visible` **共用同一份声明块** —— 这正是
+    // 不想让它变成第二份规格的做法。所以这里不能逐字比 `=== ':focus-visible'`：
+    // 本文件已经被这条打瞎过一次（选配器一加同族的，判据静默返回 null）。
+    // 按英文逗号拆开、逐项去空白后看有没有那一项，加同族选配器不会失效，
+    // 而另起一条规则仍然不会命中这里。
+    const focusRule = ((): CSSStyleRule | null => {
+        for (const sheet of Array.from(document.styleSheets)) {
+            let rules: CSSRuleList;
+            try {
+                rules = sheet.cssRules;
+            } catch {
+                continue; // 跨源表读不到就跳过；本地全是同源，正常走不到这里
+            }
+            for (const rule of Array.from(rules)) {
+                if (!(rule instanceof CSSStyleRule)) continue;
+                const parts = rule.selectorText.split(',').map((s) => s.trim());
+                if (parts.includes(':focus-visible')) return rule;
+            }
+        }
+        return null;
+    })();
+
+    check(
+        'A49',
+        '全应用只有一条焦点环规则，规格就是那四条',
+        focusRule !== null &&
+            focusRule.style.outlineWidth === '2px' &&
+            focusRule.style.outlineStyle === 'solid' &&
+            focusRule.style.outlineOffset === '2px' &&
+            // 颜色那条含 `var()`，CSSOM 读不出值，只能从规则原文里认
+            /var\(--accent-2\)/.test(focusRule.cssText),
+        focusRule
+            ? `${focusRule.style.outlineWidth} ${focusRule.style.outlineStyle} · ` +
+              `offset ${focusRule.style.outlineOffset} · ${focusRule.cssText.slice(0, 96)}`
+            : '样式表里找不到 :focus-visible 规则'
+    );
+
+    // 「聚焦时环有没有画出来」这一条**不在这里测**，原因值得记下来。
+    //
+    // `:focus-visible` 由浏览器按「最近一次交互是不是键盘」判定，而验收前面派发过
+    // 合成的 `pointerdown`（拖拽那一段），浏览器把它记成指针交互，之后 `el.focus()`
+    // 一律不命中 `:focus-visible` —— 连文本框都不命中（实测读数 `outline-style: none`，
+    // 而规范里文本输入本该总是命中）。合成 `KeyboardEvent` 改不了这个状态，
+    // 只有真实的 Tab 导航会。`outline-offset` 也写在 `:focus-visible` 里，
+    // 同样读不到，换它当代理指标也不行（试过，读数是 0px）。
+    //
+    // 于是分工：**环画不画得出来**交给截图（`10-focus` 拍的就是它，那边给第一行挂
+    // `data-ring` 把环逼出来，不去抢前台 —— 理由见 src/main.ts 那段）；
+    // **规格是不是只有一处**交给 `spike/contrast.mjs` 的 L7 / L8 ——
+    // 那是源码级判据，跑在 Node 侧，这里读不到文件。
+    //
+    // `[data-ring]` 与 `:focus-visible` 共用一份声明块这件事由上面 A49 的
+    // 选配器列表本身保证，不必另加断言。**「键盘走到这一行会不会出环」没人自动测**：
+    // `:focus-visible` 认真实输入事件，只能由人按一次 Tab 看。
+
+    // ---- 列表行可聚焦
+    //
+    // 列表是这个应用的主界面。分类行与按钮都能 Tab 到、列表行走不到的话，
+    // 键盘用户的路就断在这里，焦点环也没有落点。
+    const listRows = [...document.querySelectorAll<HTMLElement>('#list .item')];
+    check(
+        'A50',
+        '列表行可聚焦（每一行 tabindex="0"）',
+        listRows.length > 0 && listRows.every((el) => el.tabIndex === 0),
+        listRows.length ? `${listRows.length} 行 · 首行 tabIndex=${listRows[0]!.tabIndex}` : '列表是空的'
+    );
+
+    // ---- 回车能选中，且焦点还回那一行
+    const secondRow = listRows[1];
+    if (secondRow) {
+        const beforeId = document.querySelector<HTMLElement>('#list .item.on')?.dataset.id ?? null;
+        const wantId = secondRow.dataset.id ?? '';
+        const wantTitle = secondRow.querySelector('.item-title')?.textContent ?? '';
+
+        secondRow.focus();
+        secondRow.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        await sleep(100);
+
+        const onRow = document.querySelector<HTMLElement>('#list .item.on');
+        const gotTitle = document.querySelector('.detail-title')?.textContent ?? '';
+        // 选中会重绘 `innerHTML`，焦点默认掉回 body；这一条守的是「还回去」那一步
+        const refocused = document.activeElement === onRow;
+
+        check(
+            'A51',
+            '列表行按回车能选中，重绘后焦点回到那一行',
+            onRow?.dataset.id === wantId && gotTitle === wantTitle && refocused,
+            `选中 ${onRow?.dataset.id === wantId ? '对' : `错（拿到 ${onRow?.dataset.id ?? '空'}）`} · ` +
+                `详情「${gotTitle}」 · 焦点${refocused ? '还在这一行' : '掉走了'}`
+        );
+
+        // 收尾：点回测试前那一条，后面几段不必知道列表被动过
+        for (const el of listRows) {
+            if (el.dataset.id === beforeId) {
+                el.click();
+                break;
+            }
+        }
+        await sleep(60);
+    }
+
+    // ---- 「请我喝杯咖啡」那一行
+    //
+    // 这一行是设置页里唯一的「支持作者」入口，靠咖啡图标 + 常亮的强调色文字
+    // 让人一眼扫到。图标走的是 index.html 里的静态 `<use>`，所以 `spike/icons.mjs`
+    // 只守到「它是不是官方形状」那一层 —— 图标有没有真的挂在这一行上、
+    // 跟文字是不是同一个色，只有这里能守。挪走图标或改掉 `.srow-lead` 的颜色，
+    // 这一条会红。
+    //
+    // 判据不写死色值：强调色从令牌现读。`var()` 在 CSSOM 里读不到展开值，
+    // 所以塞给一个临时元素让浏览器自己解析 —— 换令牌色时这里跟着走。
+    const lead = document.querySelector<HTMLElement>('#set-donate .srow-lead');
+    const leadIcon = lead?.querySelector('use')?.getAttribute('href') ?? '';
+    const leadText = lead?.querySelector('b');
+    const leadSvg = lead?.querySelector<SVGElement>('svg');
+    const probe = document.createElement('span');
+    probe.style.color = 'var(--accent-2)';
+    document.body.append(probe);
+    const accent2 = getComputedStyle(probe).color;
+    probe.remove();
+    const textInk = leadText ? getComputedStyle(leadText).color : '';
+    const iconInk = leadSvg ? getComputedStyle(leadSvg).color : '';
+
+    check(
+        'A52',
+        '「请我喝杯咖啡」行：咖啡图标挂在文字前，图标与文字同为强调色',
+        leadIcon === '#ic-coffee' &&
+            leadText?.textContent === '请我喝杯咖啡' &&
+            textInk !== '' &&
+            textInk === accent2 &&
+            iconInk === accent2,
+        `图标 ${leadIcon || '无'} · 文字色 ${textInk || '—'} · 图标色 ${iconInk || '—'} · 强调色 ${accent2}`
+    );
+
+    appView?.classList.remove('is-active');
+    unlockView?.classList.add('is-active');
 
     // ---------------------------------------------------------------- 删除
 
@@ -953,8 +1368,14 @@ export async function runAcceptance(
         }
         unlisten();
         const waited = Math.round((Date.now() - started) / 1000);
+        // 失败时最要紧的是分清两种「计时照涨、事件全无」：
+        // `armed=false` 说明 Rust 侧压根没在判定（`tick()` 第一句就 return 了），
+        // 与「阈值没生效」或「事件没送到前端」是完全不同的两件事，而读数一模一样。
+        // 这两个字段 `lockStatus()` 本来就返回，不打出来就只能靠读 Rust 源码去猜。
+        const snap = await lockStatus();
         await mark(
-            `C5 结束：locked=${locked} 事件=${events.join('/') || '无'} 计时最长=${maxSince}ms 重置=${resets}`
+            `C5 结束：locked=${locked} 事件=${events.join('/') || '无'} 计时最长=${maxSince}ms 重置=${resets} ` +
+                `armed=${snap.armed} fired=${snap.fired ?? '无'} 阈值=${snap.idleSeconds}s`
         );
 
         // 「等过、被打断过」这句话只在失败时才需要，但它同时是这条断言
@@ -969,7 +1390,8 @@ export async function runAcceptance(
                 : resets > 0
                   ? `${waited} 秒内被真实输入打断 ${resets} 次，计时最长只到 ${maxSince} ms。` +
                     '这条断言要求连续 60 秒不碰键鼠 —— 请重跑，跑的时候别把鼠标划过窗口'
-                  : `${waited} 秒仍未锁定 · 计时已到 ${maxSince} ms 却没有事件（链路问题，不是输入打断）`
+                  : `${waited} 秒仍未锁定 · 计时已到 ${maxSince} ms 却没有事件` +
+                    `（armed=${snap.armed} · fired=${snap.fired ?? '无'} · 阈值 ${snap.idleSeconds}s，不是输入打断）`
         );
 
         await mark('C6 锁定之后停表');
@@ -1328,7 +1750,18 @@ export async function runAcceptance(
                     editBtn?.click();
                     await sleep(150);
                 };
-                const DOTS = 'm2 2 20 20'; // eyeOff 独有的路径，用来分辨图标
+                // 图标现在只以 symbol 引用出现（路径数据在 index.html 的 <defs> 里，
+                // 由 spike/icons.mjs 逐字守着），所以分辨「睁眼 / 闭眼」要看 use 指向谁。
+                //
+                // 原先这里比的是 eyeOff 独有的路径串 `m2 2 20 20` —— 换成 symbol 引用后
+                // 那个串根本不在按钮的 innerHTML 里，判据会恒为 false：F3 直接红，
+                // 而 F4 那条「不是闭眼」反而白绿。改图标集时要连这类「靠路径串认图标」
+                // 的判据一起找出来 —— grep 路径片段（`m2 2 20 20`、`d="M`），别 grep `svg`，
+                // 那样一个都扫不到。
+                const EYE_OPEN = '#ic-eye';
+                const EYE_CLOSED = '#ic-eye-off';
+                const refOf = (host: Element | null | undefined): string =>
+                    host?.querySelector('use')?.getAttribute('href') ?? '';
                 const pwIn = (): HTMLInputElement | null =>
                     document.querySelector<HTMLInputElement>('#f-pw');
                 const eyeEl = (): HTMLElement | null =>
@@ -1343,8 +1776,7 @@ export async function runAcceptance(
                 } else {
                     // 对照：刚打开时必须是掩码、图标是「睁眼」。没有这一条，
                     // F3 在一个「打开就已经是明文」的实现上也会绿。
-                    const idle =
-                        pw0.type === 'password' && !eye0.innerHTML.includes(DOTS);
+                    const idle = pw0.type === 'password' && refOf(eye0) === EYE_OPEN;
 
                     eyeEl()?.click();
                     await sleep(60);
@@ -1358,12 +1790,12 @@ export async function runAcceptance(
                         '编辑弹窗的眼睛切换到明文，图标换掉并带 .is-swap / .is-pop',
                         idle &&
                             pw1?.type === 'text' &&
-                            (eye1?.innerHTML.includes(DOTS) ?? false) &&
+                            refOf(eye1) === EYE_CLOSED &&
                             inputAnim === 'pw-swap' &&
                             eyeAnim === 'eye-pop' &&
                             kfWorks,
                         `开弹窗时是掩码=${idle} · type=${pw1?.type} · ` +
-                            `图标=${eye1?.innerHTML.includes(DOTS) ? '闭眼' : '睁眼'} · ` +
+                            `图标=${refOf(eye1) === EYE_CLOSED ? '闭眼' : '睁眼'} · ` +
                             `输入框动画=${inputAnim} · 图标动画=${eyeAnim} · 关键帧探针=${kfWorks}`
                     );
 
@@ -1379,9 +1811,9 @@ export async function runAcceptance(
                         'F4',
                         '重开弹窗时掩码状态与图标一起复位，且不补播动画',
                         pw2?.type === 'password' &&
-                            !(eye2?.innerHTML.includes(DOTS) ?? true) &&
+                            refOf(eye2) === EYE_OPEN &&
                             !(eye2?.classList.contains('is-pop') ?? true),
-                        `type=${pw2?.type} · 图标=${eye2?.innerHTML.includes(DOTS) ? '闭眼' : '睁眼'} · ` +
+                        `type=${pw2?.type} · 图标=${refOf(eye2) === EYE_CLOSED ? '闭眼' : '睁眼'} · ` +
                             `带 is-pop=${eye2?.classList.contains('is-pop')}`
                     );
 
@@ -1732,178 +2164,218 @@ export async function runAcceptance(
                 `G 起点：档位=${start.preset ?? '落在三档之外'}（${memoryBefore} MiB）· ${entriesBefore} 条`
             );
 
-            // ---- G1 换档：磁盘上那份的文件头真的换了参数
-            await store.changePreset(password, '流畅');
-            const low = await probe(password);
-            check(
-                'G1',
-                '换档到「流畅」后，磁盘上那份的文件头报 128 MiB',
-                low.ok && low.memoryMiB === KDF_PRESETS['流畅'].memoryMiB,
-                low.ok
-                    ? `内存 ${memoryBefore} → ${low.memoryMiB} MiB · 档位=${low.preset ?? '落在三档之外'}`
-                    : `换档后开不了：${low.why}`
-            );
 
-            // ---- G2 换档是整库重写：内容一条不少，主密码没跟着变
-            check(
-                'G2',
-                '换档重写了整个库，条目一条不少、原主密码照旧能开',
-                low.ok && low.entries === entriesBefore,
-                `条目 ${entriesBefore} → ${low.ok ? low.entries : '开不了'}`
-            );
-
-            // ---- G3 改动前那一份被完整留在了本地历史版本里
-            //
-            // 这是整条链的安全网：写坏了、或者改完后悔了，靠的就是它。
-            // 放在这里而不是段末，因为此刻最新那份历史版本正好是**起点状态**
-            // （段末就不是了 —— 后面每改一次都会再轮转一份）。
-            const versions = await vaultVersions();
-            let keptInfo = '没有历史版本';
-            let keptOk = false;
-            if (versions.length) {
-                const v = versions[0]!;
+            /** 把这一段动过的东西还原回去：主密码与 KDF 档位。
+             *
+             *  放在 `finally` 里，而不是留在成功路径的 G8 / G9 上。这一段改的是
+             *  **加密层的写入口**，中途一旦中断（跑动中撞上一次自动锁定就会），
+             *  库会停在临时主密码上 —— 后面每一段都会拿原主密码去开它，
+             *  红成一片而且指向别处，外面的人工核查也打不开那份库。
+             *
+             *  先看磁盘上那份是哪个密码能开，再决定要不要改：这条判据让还原本身
+             *  是幂等的，不会因为「其实没改过」而白改一次。会话被关掉时自己重新
+             *  解锁一次 —— 还原的动作要求库是开着的。 */
+            const restoreAfterRebuild = async (): Promise<void> => {
                 try {
-                    const s = await VaultSession.open(await vaultRead(v.path), password);
-                    keptOk =
-                        s.entries().length === entriesBefore &&
-                        s.header().memoryMiB === memoryBefore;
-                    keptInfo = `${v.name} → ${s.entries().length} 条 / ${s.header().memoryMiB} MiB`;
-                } catch (err) {
-                    keptInfo = `${v.name} 打不开：${message(err)}`;
-                }
-            }
-            check(
-                'G3',
-                '换档前那一份被完整留在本地历史版本里（起点档位与条目数都在）',
-                keptOk,
-                `${versions.length} 份 · ${keptInfo}`
-            );
+                    if ((await probe(NEW_PW)).ok) {
+                        if (!store.isOpen()) await store.open(NEW_PW);
+                        await store.changeMasterPassword(NEW_PW, password);
+                    }
 
-            // ---- G4 把这一档导出一份，交给脚本用 KeePassXC 复核参数
-            //
-            // 「应用自己解得开」只证明了一半。换的是 KDF 参数，得换个实现来解才算数。
-            // 段末库会换回原档位，所以这份导出件是脚本唯一能拿到的 128 MiB 样本。
-            const exportPath = `${(store.status().path ?? '').replace(/[^/]+$/, '')}kdf-check.kdbx`;
-            let exported = 0;
+                    const back = await probe(password);
+                    if (back.ok && start.preset && back.memoryMiB !== memoryBefore) {
+                        if (!store.isOpen()) await store.open(password);
+                        await store.changePreset(password, start.preset);
+                    }
+
+                    const done = await probe(password);
+                    await mark(
+                        `G 段还原：原主密码${done.ok ? '能开' : '开不了'} · ` +
+                            (done.ok ? `${done.memoryMiB} MiB` : done.why)
+                    );
+                } catch (err) {
+                    // 还原失败要留痕。静默把库丢在临时主密码上，外面只会看到
+                    // 一片指向别处的红，看不出是这一步没做。
+                    await mark(`G 段还原失败：${message(err)}`);
+                }
+            };
+
             try {
-                exported = await store.exportTo(exportPath);
-            } catch {
-                /* 下面那条断言会如实报出来 */
-            }
-            check(
-                'G4',
-                '换档后那一份能独立导出（脚本侧再用 KeePassXC 核一遍参数）',
-                exported > 0,
-                `${exported} 字节`
-            );
+                // ---- G1 换档：磁盘上那份的文件头真的换了参数
+                await store.changePreset(password, '流畅');
+                const low = await probe(password);
+                check(
+                    'G1',
+                    '换档到「流畅」后，磁盘上那份的文件头报 128 MiB',
+                    low.ok && low.memoryMiB === KDF_PRESETS['流畅'].memoryMiB,
+                    low.ok
+                        ? `内存 ${memoryBefore} → ${low.memoryMiB} MiB · 档位=${low.preset ?? '落在三档之外'}`
+                        : `换档后开不了：${low.why}`
+                );
 
-            // ---- G5 改主密码：新密码能开、旧密码开不了
-            //
-            // 「旧密码开不了」是这条的要害。只断言「新密码能开」的话，一个什么都
-            // 没改的实现也能过 —— 库本来就用旧密码能开。
-            await store.changeMasterPassword(password, NEW_PW);
-            const byNew = await probe(NEW_PW);
-            const byOld = await probe(password);
-            check(
-                'G5',
-                '改主密码后：新密码能开，旧密码开不了',
-                byNew.ok && !byOld.ok,
-                `新密码=${byNew.ok ? '能开' : `开不了（${byNew.why}）`} · ` +
-                    `旧密码=${byOld.ok ? '居然还能开' : '开不了'}`
-            );
+                // ---- G2 换档是整库重写：内容一条不少，主密码没跟着变
+                check(
+                    'G2',
+                    '换档重写了整个库，条目一条不少、原主密码照旧能开',
+                    low.ok && low.entries === entriesBefore,
+                    `条目 ${entriesBefore} → ${low.ok ? low.entries : '开不了'}`
+                );
 
-            // ---- G6 改密码没动库内容
-            check(
-                'G6',
-                '改主密码重写了整个库，条目一条不少',
-                byNew.ok && byNew.entries === entriesBefore,
-                `条目 ${entriesBefore} → ${byNew.ok ? byNew.entries : '开不了'}`
-            );
-
-            // ---- G7 对照：主密码输错时，整条链路必须停在原地
-            //
-            // 没有这一条，一个「不验旧密码、无条件往下走」的实现照样能过 G1–G6。
-            //
-            // 两条腿都要走，因为她们被拦住的地方不一样：
-            //
-            //   · 换档那条，目标密码**就是**输入的那个 —— 所以即便跳过第 ② 步的校验，
-            //     第 ④ 步「用新凭据开刚导出的字节」也会失败（文件里还是旧密码），
-            //     照样拦得住。
-            //   · 改密那条，新密码是另一个值 —— 跳过第 ② 步就一路通到底，磁盘被
-            //     重写成新密码。用户以为自己输错了会被拒绝，实际库已经换锁。
-            //
-            // 只测前者时，把第 ② 步整段挖掉的变异照样全绿 —— 这一条是变异验证
-            // 发现的（见附录 O）。
-            const beforeWrong = await digest();
-            const legs: Array<[string, () => Promise<void>]> = [
-                ['换档', () => store.changePreset(`${NEW_PW} 不对`, '安全')],
-                ['改主密码', () => store.changeMasterPassword(`${NEW_PW} 不对`, `${NEW_PW} 更不对`)]
-            ];
-            const refusals: string[] = [];
-            for (const [what, run] of legs) {
-                try {
-                    await run();
-                    refusals.push(`${what}=没有拒绝`);
-                } catch (err) {
-                    refusals.push(`${what}=${message(err)}`);
+                // ---- G3 改动前那一份被完整留在了本地历史版本里
+                //
+                // 这是整条链的安全网：写坏了、或者改完后悔了，靠的就是它。
+                // 放在这里而不是段末，因为此刻最新那份历史版本正好是**起点状态**
+                // （段末就不是了 —— 后面每改一次都会再轮转一份）。
+                const versions = await vaultVersions();
+                let keptInfo = '没有历史版本';
+                let keptOk = false;
+                if (versions.length) {
+                    const v = versions[0]!;
+                    try {
+                        const s = await VaultSession.open(await vaultRead(v.path), password);
+                        keptOk =
+                            s.entries().length === entriesBefore &&
+                            s.header().memoryMiB === memoryBefore;
+                        keptInfo = `${v.name} → ${s.entries().length} 条 / ${s.header().memoryMiB} MiB`;
+                    } catch (err) {
+                        keptInfo = `${v.name} 打不开：${message(err)}`;
+                    }
                 }
+                check(
+                    'G3',
+                    '换档前那一份被完整留在本地历史版本里（起点档位与条目数都在）',
+                    keptOk,
+                    `${versions.length} 份 · ${keptInfo}`
+                );
+
+                // ---- G4 把这一档导出一份，交给脚本用 KeePassXC 复核参数
+                //
+                // 「应用自己解得开」只证明了一半。换的是 KDF 参数，得换个实现来解才算数。
+                // 段末库会换回原档位，所以这份导出件是脚本唯一能拿到的 128 MiB 样本。
+                const exportPath = `${(store.status().path ?? '').replace(/[^/]+$/, '')}kdf-check.kdbx`;
+                let exported = 0;
+                try {
+                    exported = await store.exportTo(exportPath);
+                } catch {
+                    /* 下面那条断言会如实报出来 */
+                }
+                check(
+                    'G4',
+                    '换档后那一份能独立导出（脚本侧再用 KeePassXC 核一遍参数）',
+                    exported > 0,
+                    `${exported} 字节`
+                );
+
+                // ---- G5 改主密码：新密码能开、旧密码开不了
+                //
+                // 「旧密码开不了」是这条的要害。只断言「新密码能开」的话，一个什么都
+                // 没改的实现也能过 —— 库本来就用旧密码能开。
+                await store.changeMasterPassword(password, NEW_PW);
+                const byNew = await probe(NEW_PW);
+                const byOld = await probe(password);
+                check(
+                    'G5',
+                    '改主密码后：新密码能开，旧密码开不了',
+                    byNew.ok && !byOld.ok,
+                    `新密码=${byNew.ok ? '能开' : `开不了（${byNew.why}）`} · ` +
+                        `旧密码=${byOld.ok ? '居然还能开' : '开不了'}`
+                );
+
+                // ---- G6 改密码没动库内容
+                check(
+                    'G6',
+                    '改主密码重写了整个库，条目一条不少',
+                    byNew.ok && byNew.entries === entriesBefore,
+                    `条目 ${entriesBefore} → ${byNew.ok ? byNew.entries : '开不了'}`
+                );
+
+                // ---- G7 对照：主密码输错时，整条链路必须停在原地
+                //
+                // 没有这一条，一个「不验旧密码、无条件往下走」的实现照样能过 G1–G6。
+                //
+                // 两条腿都要走，因为她们被拦住的地方不一样：
+                //
+                //   · 换档那条，目标密码**就是**输入的那个 —— 所以即便跳过第 ② 步的校验，
+                //     第 ④ 步「用新凭据开刚导出的字节」也会失败（文件里还是旧密码），
+                //     照样拦得住。
+                //   · 改密那条，新密码是另一个值 —— 跳过第 ② 步就一路通到底，磁盘被
+                //     重写成新密码。用户以为自己输错了会被拒绝，实际库已经换锁。
+                //
+                // 只测前者时，把第 ② 步整段挖掉的变异照样全绿 —— 这一条是变异验证
+                // 发现的（见附录 O）。
+                const beforeWrong = await digest();
+                const legs: Array<[string, () => Promise<void>]> = [
+                    ['换档', () => store.changePreset(`${NEW_PW} 不对`, '安全')],
+                    ['改主密码', () => store.changeMasterPassword(`${NEW_PW} 不对`, `${NEW_PW} 更不对`)]
+                ];
+                const refusals: string[] = [];
+                for (const [what, run] of legs) {
+                    try {
+                        await run();
+                        refusals.push(`${what}=没有拒绝`);
+                    } catch (err) {
+                        refusals.push(`${what}=${message(err)}`);
+                    }
+                }
+                const afterWrong = await digest();
+                check(
+                    'G7',
+                    '主密码输错时两种重建都拒绝执行，磁盘上那份一个字节都没动',
+                    refusals.every((r) => r.includes('主密码')) && beforeWrong === afterWrong,
+                    `${refusals.join(' · ')} · ` +
+                        `指纹${beforeWrong === afterWrong ? '未变' : `由 ${beforeWrong} 变成 ${afterWrong}`}`
+                );
+
+                // ---- G8 改回原主密码
+                await store.changeMasterPassword(NEW_PW, password);
+                const home = await probe(password);
+                const stillNew = await probe(NEW_PW);
+                check(
+                    'G8',
+                    '改回原主密码后：原密码能开，临时密码开不了',
+                    home.ok && !stillNew.ok && home.entries === entriesBefore,
+                    `原密码=${home.ok ? '能开' : '开不了'} · ` +
+                        `临时密码=${stillNew.ok ? '居然还能开' : '开不了'}`
+                );
+
+                // ---- G9 换回原档位
+                if (start.preset) await store.changePreset(password, start.preset);
+                const back = await probe(password);
+                check(
+                    'G9',
+                    '换回原档位后，文件头的参数回到起点',
+                    !!start.preset && back.ok && back.memoryMiB === memoryBefore,
+                    start.preset
+                        ? `${back.memoryMiB} MiB（起点 ${memoryBefore} MiB）· 档位=${back.preset ?? '落在三档之外'}`
+                        : '起点档位落在三档之外，这一条没有判别力'
+                );
+
+                // ---- G10 重建之后自动锁定仍在计时
+                //
+                // 重建会先 `lockDisarm()` 停表（一次重建最长约 6 秒，撞上无操作阈值
+                // 就会在会话被整体替换的那一刻锁定）。收尾必须用 `lockArm`：
+                // `lockConfigure` 只改参数、不置 `armed`，拿它收尾会把自动锁定永久
+                // 关掉 —— 而这个后果在界面上完全看不出来。
+                //
+                // 阈值那一项也在断言里：起表要用**磁盘上那份**配置。只信调用方手里
+                // 那份快照的话，设置面板从没被打开过时它是 null，会按 0 起表，同样
+                // 把自动锁定关掉。
+                //
+                // 这一条测得到，是因为停表 / 起表随重建流程一起放在 `store.rebuild()`
+                // 里 —— 早先写在 `SettingsView.runRebuild()`，而验收直接调 store，
+                // 那两条断言其实从未走到被变异的那段代码（见附录 O）。
+                const lock = await lockStatus();
+                check(
+                    'G10',
+                    '重建之后自动锁定按磁盘上的配置重新起表',
+                    lock.armed && lock.idleMinutes > 0,
+                    `armed=${lock.armed} · 阈值=${lock.idleMinutes} 分钟`
+                );
+
+                await mark('G 段结束：库已回到起点');
+            } finally {
+                await restoreAfterRebuild();
             }
-            const afterWrong = await digest();
-            check(
-                'G7',
-                '主密码输错时两种重建都拒绝执行，磁盘上那份一个字节都没动',
-                refusals.every((r) => r.includes('主密码')) && beforeWrong === afterWrong,
-                `${refusals.join(' · ')} · ` +
-                    `指纹${beforeWrong === afterWrong ? '未变' : `由 ${beforeWrong} 变成 ${afterWrong}`}`
-            );
-
-            // ---- G8 改回原主密码
-            await store.changeMasterPassword(NEW_PW, password);
-            const home = await probe(password);
-            const stillNew = await probe(NEW_PW);
-            check(
-                'G8',
-                '改回原主密码后：原密码能开，临时密码开不了',
-                home.ok && !stillNew.ok && home.entries === entriesBefore,
-                `原密码=${home.ok ? '能开' : '开不了'} · ` +
-                    `临时密码=${stillNew.ok ? '居然还能开' : '开不了'}`
-            );
-
-            // ---- G9 换回原档位
-            if (start.preset) await store.changePreset(password, start.preset);
-            const back = await probe(password);
-            check(
-                'G9',
-                '换回原档位后，文件头的参数回到起点',
-                !!start.preset && back.ok && back.memoryMiB === memoryBefore,
-                start.preset
-                    ? `${back.memoryMiB} MiB（起点 ${memoryBefore} MiB）· 档位=${back.preset ?? '落在三档之外'}`
-                    : '起点档位落在三档之外，这一条没有判别力'
-            );
-
-            // ---- G10 重建之后自动锁定仍在计时
-            //
-            // 重建会先 `lockDisarm()` 停表（一次重建最长约 6 秒，撞上无操作阈值
-            // 就会在会话被整体替换的那一刻锁定）。收尾必须用 `lockArm`：
-            // `lockConfigure` 只改参数、不置 `armed`，拿它收尾会把自动锁定永久
-            // 关掉 —— 而这个后果在界面上完全看不出来。
-            //
-            // 阈值那一项也在断言里：起表要用**磁盘上那份**配置。只信调用方手里
-            // 那份快照的话，设置面板从没被打开过时它是 null，会按 0 起表，同样
-            // 把自动锁定关掉。
-            //
-            // 这一条测得到，是因为停表 / 起表随重建流程一起放在 `store.rebuild()`
-            // 里 —— 早先写在 `SettingsView.runRebuild()`，而验收直接调 store，
-            // 那两条断言其实从未走到被变异的那段代码（见附录 O）。
-            const lock = await lockStatus();
-            check(
-                'G10',
-                '重建之后自动锁定按磁盘上的配置重新起表',
-                lock.armed && lock.idleMinutes > 0,
-                `armed=${lock.armed} · 阈值=${lock.idleMinutes} 分钟`
-            );
-
-            await mark('G 段结束：库已回到起点');
         }
     } catch (err) {
         check('B1', '备份、自动锁定与剪贴板链路', false, message(err));

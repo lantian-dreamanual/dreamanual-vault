@@ -8,7 +8,7 @@
  * 不会因为它存在而把「开发预览」和「真实库」混起来。 */
 
 import { KDF_PRESETS, type PresetName } from '../vault/kdf';
-import { UNCATEGORIZED, type VaultEntry } from '../vault/model';
+import { UNCATEGORIZED, isDotColor, type VaultEntry } from '../vault/model';
 import type { EntryInput, HeaderInfo, VaultSessionApi } from '../vault/session';
 import { DEMO_ENTRIES, DEMO_GROUPS } from './seed';
 
@@ -16,6 +16,17 @@ export class MemorySession implements VaultSessionApi {
     private readonly items: VaultEntry[] = [];
     private readonly cats: string[];
     private seq = 0;
+
+    /** 分类自定义色与自定义顺序。真实库里这两个是分组扩展位上的键，这里用表代替 ——
+     *  预览要能被完整点一遍（选色、拖拽），两边口径不一致的话预览会骗人。 */
+    private readonly colors = new Map<string, string>();
+    private readonly order = new Map<string, number>();
+
+    /** 假库不能写盘。这个字段是契约上的硬约束，不是备注 ——
+     *  `store.ts` 的写盘路径会读它。见 `VaultSessionApi.persistable` 的注释：
+     *  这个假库的 `toBytes()` 返回空 `ArrayBuffer`，一旦被写到主库位置上，
+     *  主库就变成一个 0 字节文件。 */
+    readonly persistable = false;
 
     /** 预览里「换过档」的落点。`header()` 读它，好让设置页显示当前档位那一行
      *  在预览里也真的会变 —— 否则「点了应用什么都不动」这条路径没法用界面自查。 */
@@ -44,7 +55,25 @@ export class MemorySession implements VaultSessionApi {
     }
 
     groups(): string[] {
-        return [...this.cats].sort((a, b) => a.localeCompare(b, 'zh-Hans-CN'));
+        const byName = (a: string, b: string): number => a.localeCompare(b, 'zh-Hans-CN');
+        const orderOf = (name: string): number | null => this.order.get(name) ?? null;
+
+        if (!this.cats.some((n) => orderOf(n) !== null)) return [...this.cats].sort(byName);
+
+        return [...this.cats].sort((a, b) => {
+            const oa = orderOf(a);
+            const ob = orderOf(b);
+            if (oa !== null && ob !== null) return oa - ob || byName(a, b);
+            if (oa !== null) return -1;
+            if (ob !== null) return 1;
+            return byName(a, b);
+        });
+    }
+
+    groupColors(): Record<string, string> {
+        const out: Record<string, string> = {};
+        for (const [name, color] of this.colors) if (this.cats.includes(name)) out[name] = color;
+        return out;
     }
 
     entries(): VaultEntry[] {
@@ -130,6 +159,17 @@ export class MemorySession implements VaultSessionApi {
 
         this.cats[at] = trimmed;
         for (const item of this.items) if (item.group === from) item.group = trimmed;
+        // 颜色与顺序跟着改名走 —— 真实库里它们挂在组对象上，改名不会掉
+        const color = this.colors.get(from);
+        if (color) {
+            this.colors.delete(from);
+            this.colors.set(trimmed, color);
+        }
+        const order = this.order.get(from);
+        if (order !== undefined) {
+            this.order.delete(from);
+            this.order.set(trimmed, order);
+        }
         return trimmed;
     }
 
@@ -139,9 +179,33 @@ export class MemorySession implements VaultSessionApi {
         if (at < 0) throw new Error(`找不到分类「${name}」`);
         this.cats.splice(at, 1);
         for (const item of this.items) if (item.group === name) item.group = UNCATEGORIZED;
+        this.colors.delete(name);
+        this.order.delete(name);
     }
 
-    /** 内存预览不落盘。写盘路径在 non-Tauri 环境下本来就不会被走到。 */
+    setGroupColor(name: string, color: string | null): void {
+        if (!this.cats.includes(name)) throw new Error(`找不到分类「${name}」`);
+        if (color !== null && !isDotColor(color)) throw new Error('这个颜色不在可选色板里');
+        if (color === null) this.colors.delete(name);
+        else this.colors.set(name, color);
+    }
+
+    reorderGroups(names: string[]): void {
+        const wanted = names.filter((n) => this.cats.includes(n));
+        if (wanted.length !== this.cats.length || new Set(wanted).size !== wanted.length) {
+            throw new Error('排序请求与当前分类对不上，已放弃');
+        }
+        wanted.forEach((name, i) => this.order.set(name, i + 1));
+    }
+
+    /** 内存预览不落盘。
+     *
+     *  返回**空** `ArrayBuffer` 是刻意的：这个假库没有任何可序列化的内容，
+     *  编一串假字节出来只会让人以为它是一份真库。
+     *
+     *  「返回空」与「不会被写出去」必须成对成立 —— 前者单独存在就是一条数据损坏路径
+     *  （写盘是「先存历史版本、再原子写入」）。所以 `persistable = false` 是这条的
+     *  另一半，写盘路径读它。两者不要分开改。 */
     async toBytes(): Promise<ArrayBuffer> {
         return new ArrayBuffer(0);
     }

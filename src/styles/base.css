@@ -46,6 +46,46 @@ svg {
     display: block;
 }
 
+/* ---------- 焦点环：全应用一条规则 ----------
+
+   可聚焦元素在键盘走到时都出现同一个环。时机取 `:focus-visible`：
+   鼠标点一下按钮是执行动作，弹一个环只是噪音。文本输入在规范里是例外，
+   它连鼠标点击也匹配 `:focus-visible`（光标落在哪要看得到），于是输入框的
+   反馈一点没少，规则却收在了一处。
+
+   环画在 `outline` 上，不写进 `box-shadow`，三个理由：
+   ① 不与元素自带的 box-shadow 打架。`.palette-sw` 的选中环与 `.btn-pri` 的
+      投影都还在，不必逐个元素改写；
+   ② `outline-offset` 留出的空隙透出底色，把环与元素本体隔开。环直接压在实心
+      主按钮上只有 1.79:1（蓝压蓝），隔开之后环压的是底，到处都成立；
+   ③ outline 自动跟随 border-radius，圆角元素不用额外处理。
+
+   环色取 `--accent-2`：压在 --panel 上 6.24:1、--panel-2 上 5.77:1、
+   侧栏毛玻璃上 4.29:1（那个底的实测值在 `spike/contrast.mjs` 里），
+   最差一档也过 WCAG 1.4.11 的 3:1。读数由那个脚本守着，改这里要重跑它。
+
+   开关（`.switch`）是唯一的例外：它的 input 是 `opacity: 0`，环得画在滑块上，
+   规则在 views.css 里另写一条。
+
+   写成四条 longhand 而不是一行 shorthand：`outline: …var(--accent-2)` 这种含
+   `var()` 的 shorthand 在 CSSOM 里**不展开**，`style.outlineWidth` 读出来是空串，
+   验收那条「规格对不对」的断言会拿到一片空白。（A49 就是照这个写的。）
+   颜色那条仍是 `var()`，CSSOM 读不到值 —— 环色的对比度由 `spike/contrast.mjs`
+   的 L5 / L6 守，那才是该管这件事的地方。
+
+   `[data-ring]` 是给 `10-focus` 那张截图用的。环靠 `:focus-visible` 画，而 WebKit
+   在窗口不是当前应用时不匹配它，截图脚本从 shell 起进程拿不到前台，环就拍不出来；
+   为了拍它去抢前台又会挤掉正在干活的人。于是开发标记 `focus` 给列表第一行挂上这个
+   属性，环照画。它**写在同一份声明块里**（同一份规格），另起一条规则会被 contrast
+   的 L7 判红。正式运行没人挂这个属性。 */
+:focus-visible,
+[data-ring] {
+    outline-width: 2px;
+    outline-style: solid;
+    outline-color: var(--accent-2);
+    outline-offset: 2px;
+}
+
 .hidden {
     display: none !important;
 }
@@ -154,10 +194,11 @@ svg {
     -webkit-appearance: none;
 }
 
+/* 聚焦时底色提亮、边框转强调色。环不在这里画 —— 全应用共用 base.css 顶部
+   那条 `:focus-visible` 规则，就地再写一份只会让两边迟早对不上。 */
 .inp:focus {
     background: var(--panel);
     border-color: var(--accent-line);
-    box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 textarea.inp {

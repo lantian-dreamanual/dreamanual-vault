@@ -24,6 +24,35 @@
      没放进 src/ui/icons.ts：那边是给动态渲染拼字符串用的，这里是静态标记，走 JS 会闪一下。 -->
 <svg width="0" height="0" aria-hidden="true" focusable="false"><defs>
   <g id="brand-key" transform="translate(-3.50349 -3.53398) scale(0.0303616)"><path fill="currentColor" fill-rule="evenodd" d="M592.58203125,488.29355125C641.59753125,459.92154125,674.58203125,406.90854125,674.58203125,346.26953125C674.58203125,255.74153124999998,601.08955125,182.26953125,510.58203125,182.26953125C420.07453125,182.26953125,346.58203125,255.74153124999998,346.58203125,346.26953125C346.58203125,406.90854125,379.56653625,459.92154125,428.58203125,488.29355125L428.58203125,551.26953125L449.08203125,582.01953125L428.58203125,612.76953125L428.58203125,653.76953125L449.08203125,684.51953125L428.58203125,715.26953125L428.58203125,787.01953125C428.58203125,787.01953125,461.83302125,811.94751125,485.98204125,830.06952125C500.55752125000004,840.99603125,520.60654125,840.99603125,535.18205125,830.06952125C559.33104125,811.94751125,592.58203125,787.01953125,592.58203125,787.01953125L592.58203125,488.29355125ZM510.58203125,243.76953125C533.2140312500001,243.76953125,551.58203125,262.13752725,551.58203125,284.76953125C551.58203125,307.38103125,533.2140312500001,325.76953125,510.58203125,325.76953125C487.95003125,325.76953125,469.58203125,307.38103125,469.58203125,284.76953125C469.58203125,262.13752725,487.95003125,243.76953125,510.58203125,243.76953125Z"/></g>
+  <!-- ---------- 图标集：lucide v1.47.0（ISC） ----------
+
+       全部 14 个图标只在这里定义一份。页面里的静态标记与 src/ui/icons.ts 拼给
+       动态渲染的字符串，都只写一个指向 ic-* 的 use 引用，不再各带一份路径 ——
+       原先 lock / search / x / eye / refresh-cw / external-link 六个在两边
+       各写了一份，改一次要改两处。
+
+       路径数据逐字取自官方 lucide-static@1.47.0，基准存在
+       spike/lucide-baseline.json，由 spike/icons.mjs 逐字比对。
+       要新增图标：先 `node spike/icons.mjs --refresh <图标名>` 把官方路径写进基准，
+       再把同一份路径加到这里 —— 手改其中一条，门禁会红。
+
+       fill / stroke / linecap / linejoin 放在 symbol 上（引用处继承）；
+       stroke-width 故意不写在这里 —— 它随显示尺寸变，由引用处的 <svg> 给，
+       口径见 src/ui/icons.ts 的 strokeFor。 -->
+  <symbol id="ic-chevrons-up-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></symbol>
+  <symbol id="ic-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="ic-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></symbol>
+  <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+  <symbol id="ic-external-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="ic-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="ic-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></symbol>
+  <symbol id="ic-refresh-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+  <symbol id="ic-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="ic-pencil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></symbol>
+  <symbol id="ic-trash-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></symbol>
+  <symbol id="ic-coffee" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></symbol>
 </defs></svg>
 
 <!-- ============================== 视图 1 · 解锁 ============================== -->
@@ -49,7 +78,7 @@
       <label for="lock-vault">当前库</label>
       <button class="vault-row" id="lock-vault" type="button" title="切换密码库">
         <span class="vault-row-path" id="lock-path">读取中…</span>
-        <svg class="vault-row-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+        <svg class="vault-row-chev" width="13" height="13" viewBox="0 0 24 24" stroke-width="2.769" aria-hidden="true"><use href="#ic-chevrons-up-down"/></svg>
       </button>
     </div>
 
@@ -159,14 +188,14 @@
       <div class="save-state" id="save-state"></div>
       <div class="sider-foot-row">
         <button class="vault-switch" id="btn-vault" type="button" title="切换密码库">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" stroke-width="3" aria-hidden="true"><use href="#ic-chevrons-up-down"/></svg>
           <span class="vault-name" id="vault-name">—</span>
         </button>
         <button class="icon-btn" id="btn-lock" type="button" title="锁定（⌘L）" aria-label="锁定">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-lock"/></svg>
         </button>
         <button class="icon-btn" id="btn-settings" type="button" title="设置（⌘,）" aria-label="设置">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0-1.2-2.9H1a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 2.6 7a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H7a1.7 1.7 0 0 0 1-1.5V1a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 2.9 1.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V7a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-settings"/></svg>
         </button>
       </div>
     </div>
@@ -181,14 +210,14 @@
           <!-- 输入框单独包一层，是为了让「清空」跟着输入框定位。
                新建条目挂在同一行右侧 —— 它作用在这个列表上，入口就该贴着列表。 -->
           <div class="search-wrap">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-search"/></svg>
             <input class="search" id="search" placeholder="搜索标题、账号、备注…" autocomplete="off" spellcheck="false">
             <button class="search-clear hidden" id="search-clear" title="清空（Esc）">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" stroke-width="3" aria-hidden="true"><use href="#ic-x"/></svg>
             </button>
           </div>
           <button class="icon-btn" id="btn-new-entry" type="button" title="新建条目（⌘N）" aria-label="新建条目">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-plus"/></svg>
           </button>
         </div>
         <div class="list-head"><span id="list-count"></span><span id="list-scope"></span></div>
@@ -217,7 +246,7 @@
           <div class="settings-head-row">
             <h1>设置</h1>
             <button class="icon-btn" id="set-close" type="button" title="返回保险箱（Esc）" aria-label="返回保险箱">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-x"/></svg>
             </button>
           </div>
           <!-- 只写后果，不写「改动会保存」—— 没人怀疑这件事。 -->
@@ -331,8 +360,16 @@
                这一行会同时丢掉下边框与下圆角（同组其余各行都是 div）。 -->
           <div class="srow srow-link">
             <button class="srow-hit" id="set-donate" type="button">
-              <div class="srow-k"><b>请我喝杯咖啡</b></div>
-              <svg class="srow-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <!-- 咖啡图标与文字共用 .srow-lead 的强调色（--accent-2）。
+                   外面这层必须是 div，不能是 span —— `.srow-k span` 那条是副标题
+                   的规格（11.5px 灰字 + 省略号），拿 span 装会被压成副标题样式。 -->
+              <div class="srow-k">
+                <div class="srow-lead">
+                  <svg class="srow-ic" width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-coffee"/></svg>
+                  <b>请我喝杯咖啡</b>
+                </div>
+              </div>
+              <svg class="srow-chev" width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-external-link"/></svg>
             </button>
           </div>
         </section>
@@ -346,7 +383,7 @@
     <div class="modal-head">
       <h2 id="editor-title">新建条目</h2>
       <button class="icon-btn" id="editor-close">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-x"/></svg>
       </button>
     </div>
     <div class="modal-body">
@@ -372,10 +409,10 @@
           <input class="inp" type="password" id="f-pw" placeholder="留空则不记录" autocomplete="off" spellcheck="false">
           <div class="pw-tools">
             <button class="icon-btn" id="f-pw-reveal" title="显示 / 隐藏">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-eye"/></svg>
             </button>
             <button class="icon-btn" id="f-pw-gen" title="生成随机密码">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-refresh-cw"/></svg>
             </button>
           </div>
         </div>

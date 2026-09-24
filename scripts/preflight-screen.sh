@@ -21,10 +21,30 @@
 #
 # 用法（在脚本里 source 之后调）：
 #     . "$HERE/scripts/preflight-screen.sh"
+#     keep_awake "$@" && { ... }        # 可选：整轮期间不让显示器休眠
 #     require_screen_usable || exit 1
 
 screen_is_locked() {
     ioreg -n Root -d1 2>/dev/null | grep -q '"IOConsoleLocked" = Yes'
+}
+
+# 让整轮跑动期间显示器不要休眠 —— 用 `caffeinate` 把本脚本重新拉起来。
+#
+# 为什么不能只靠开头那次预检：验收整轮两分半、截图整轮约一分钟，而**中途**显示器
+# 休眠同样会走「显示器睡眠 → 屏幕锁定 → 页面进程被挂起」这条链。跑动中没人碰键鼠，
+# 显示器休眠这件事恰恰是最容易发生的。撞上之后的表现与开头就锁屏一模一样：
+# 脚本静默挂住、看门狗到点收场、整轮读数全部落空 —— 而且失败信息指向应用。
+#
+# 调用点写成 `keep_awake "$@"`（顶层调用），函数里的 `$@` 才是脚本的参数。
+# 已经拉起来过就不再来一遍：`exec` 换掉的是当前进程，再进一次就是无限递归。
+keep_awake() {
+    [ -n "${VAULT_KEEP_AWAKE:-}" ] && return 0
+    command -v caffeinate >/dev/null 2>&1 || return 0
+
+    echo "整轮期间禁止显示器休眠（caffeinate -dims）"
+    # 不用 `-u`：那会伪造用户活动，而应用的无操作计时**不该**被它影响 ——
+    # 验收里有一条断言等的正是「真实的无操作到点」。
+    VAULT_KEEP_AWAKE=1 exec caffeinate -dims "$0" "$@"
 }
 
 # 屏幕不可用时打印能直接照做的提示并返回 1；可用时返回 0。

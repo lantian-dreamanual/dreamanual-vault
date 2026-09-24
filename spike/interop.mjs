@@ -210,6 +210,25 @@ async function main() {
     );
     const beforeCount = [...beforeDb.getDefaultGroup().allEntries()].length;
 
+    // 先给每个分组写上「分类颜色 / 自定义顺序」这两个扩展位。
+    // 它们在应用里存的地方就是 Group → CustomData（见 `src/vault/kdbx.ts` 的两个键），
+    // 而**别的客户端重存之后还在不在**是这套功能成立的前提 ——
+    // 只验「我们自己读写没问题」会漏掉这一半。
+    const EXT_COLOR = 'DreamanualColor';
+    const EXT_ORDER = 'DreamanualOrder';
+    const probeColors = ['#fb64b6', '#ff8904', '#fdc700'];
+    const expectedExt = new Map();
+    beforeDb.getDefaultGroup().groups.forEach((g, i) => {
+        if (!g.name) return;
+        const color = probeColors[i % probeColors.length];
+        g.customData = new Map([
+            [EXT_COLOR, { value: color }],
+            [EXT_ORDER, { value: String(i + 1) }]
+        ]);
+        expectedExt.set(g.name, { color, order: String(i + 1) });
+    });
+    fs.writeFileSync(VAULT_PATH, Buffer.from(await beforeDb.save()));
+
     const modified = kc(
         [
             'add',
@@ -263,6 +282,25 @@ async function main() {
             '原有条目的字段未被改动',
             !!vpn && vpn.Password === 'Vpn!2026#Lab' && vpn.Notes.includes('SEC-2026-0417'),
             vpn ? `${vpn.UserName} / 备注 ${vpn.Notes.length} 字符` : '未找到'
+        );
+
+        // ---- 分组扩展位能不能穿过 KeePassXC 的重存
+        const afterGroups = merged.getDefaultGroup().groups;
+        const lost = [...expectedExt.keys()].filter((name) => {
+            const g = afterGroups.find((x) => x.name === name);
+            const want = expectedExt.get(name);
+            return (
+                g?.customData?.get(EXT_COLOR)?.value !== want.color ||
+                g?.customData?.get(EXT_ORDER)?.value !== want.order
+            );
+        });
+        check(
+            'C7',
+            '分组扩展位上的颜色与顺序穿过 KeePassXC 的重存（另一个客户端改过之后还在）',
+            expectedExt.size > 0 && lost.length === 0,
+            lost.length
+                ? `丢了：${lost.join(', ')}`
+                : `${expectedExt.size} 个分组的两个键都原值保留`
         );
     }
 
