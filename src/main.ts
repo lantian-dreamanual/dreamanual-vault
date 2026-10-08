@@ -155,7 +155,7 @@ function saveEntry(entry: VaultEntry): void {
         if (entry.id) store.updateEntry(entry);
         else created = store.addEntry(entry);
     } catch (err) {
-        toast(errorText(err), 2600);
+        toast(errorText(err), 'err', 2600);
     }
     if (created) vault.reveal(created.id);
     else vault.refresh();
@@ -195,9 +195,9 @@ async function newGroup(): Promise<void> {
     try {
         const created = store.createGroup(draft.name, draft.color);
         vault.selectGroup(created);
-        toast(`已新建分类「${created}」`);
+        toast(`已新建分类「${created}」`, 'ok');
     } catch (err) {
-        toast(errorText(err), 2600);
+        toast(errorText(err), 'err', 2600);
     }
 }
 
@@ -212,10 +212,10 @@ async function createGroupForEditor(): Promise<string | null> {
 
     try {
         const created = store.createGroup(draft.name, draft.color);
-        toast(`已新建分类「${created}」`);
+        toast(`已新建分类「${created}」`, 'ok');
         return created;
     } catch (err) {
-        toast(errorText(err), 2600);
+        toast(errorText(err), 'err', 2600);
         return null;
     }
 }
@@ -239,12 +239,12 @@ async function editGroup(from: string): Promise<void> {
         if (renamed) vault.selectGroup(final);
         vault.refresh();
 
-        if (renamed && recolored) toast(`已更新分类「${final}」`);
-        else if (renamed) toast(`已改名为「${final}」`);
-        else if (draft.color) toast('已设置颜色');
-        else toast('已改回自动色');
+        if (renamed && recolored) toast(`已更新分类「${final}」`, 'ok');
+        else if (renamed) toast(`已改名为「${final}」`, 'ok');
+        else if (draft.color) toast('已设置颜色', 'ok');
+        else toast('已改回自动色', 'ok');
     } catch (err) {
-        toast(errorText(err), 2600);
+        toast(errorText(err), 'err', 2600);
     }
 }
 
@@ -263,9 +263,9 @@ async function deleteGroup(name: string): Promise<void> {
     try {
         store.removeGroup(name);
         vault.selectGroup(ALL_GROUP);
-        toast(`已删除分类「${name}」`);
+        toast(`已删除分类「${name}」`, 'ok');
     } catch (err) {
-        toast(errorText(err), 2600);
+        toast(errorText(err), 'err', 2600);
     }
 }
 
@@ -275,7 +275,7 @@ function reorderGroups(names: string[]): void {
     try {
         store.reorderGroups(names);
     } catch (err) {
-        toast(errorText(err), 2600);
+        toast(errorText(err), 'err', 2600);
     }
     vault.refresh();
 }
@@ -442,7 +442,7 @@ store.subscribe((status) => {
             saveStateEl.classList.add('is-error');
             if (status.error && status.error !== lastSaveError) {
                 lastSaveError = status.error;
-                toast(`保存失败：${status.error}`, 3200);
+                toast(`保存失败：${status.error}`, 'err', 3200);
             }
             break;
         case 'saved': {

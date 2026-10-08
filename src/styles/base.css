@@ -439,7 +439,7 @@ select.inp {
     position: fixed;
     bottom: var(--sp-24);
     left: 50%;
-    transform: translate(-50%, 18px);
+    transform: translate(-50%, var(--sp-16));
     opacity: 0;
     background: var(--toast-bg);
     color: var(--toast-ink);
@@ -453,7 +453,15 @@ select.inp {
     box-shadow: var(--shadow-toast);
     display: flex;
     align-items: center;
-    gap: var(--sp-6);
+    gap: var(--sp-8);
+}
+
+/* 图标与文字同取 --toast-ink，且不被压扁。语义靠形状（circle-check / circle-x /
+   info），不靠颜色 —— 族基础档是为固定深色底选的，压在这个浅实色底上不到 3:1。
+   理由与读数在 src/ui/dom.ts 的 toast()。 */
+.toast svg {
+    flex: none;
+    color: var(--toast-ink);
 }
 
 .toast.on {

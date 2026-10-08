@@ -1,5 +1,7 @@
 /* DOM 小工具。项目不引框架，这几个函数就是全部的「视图辅助」。 */
 
+import { icons } from './icons';
+
 export function $(selector: string, root: ParentNode = document): HTMLElement | null {
     return root.querySelector(selector);
 }
@@ -44,11 +46,33 @@ export function highlight(text: string, query: string): string {
 
 let toastTimer: number | undefined;
 
-export function toast(message: string, ms = 2000): void {
+/** 提示的三种语义。 */
+export type ToastKind = 'ok' | 'err' | 'info';
+
+/** 图标 html 预先拼好。三个都是 16px（第八节「Toast」的 ic-16）。 */
+const TOAST_ICON: Record<ToastKind, string> = {
+    ok: icons.ok(),
+    err: icons.err(),
+    info: icons.info()
+};
+
+/**
+ * 底部居中提示，默认 2000ms。
+ *
+ * `kind` 必传：这一处是「做成了」「没做成」还是「只是说明」，只有调用点知道。
+ * 给默认值就没人再想它，三种语义会退化成一种。
+ *
+ * 图标与文字同取 `--toast-ink`，不走「成功绿 / 失败红 / 信息蓝」——
+ * `--ok` / `--danger` / `--accent` 这三个基础档是为固定深色底选的，压在 toast 的
+ * 浅实色底上只有 2.01 / 2.99 / 2.92:1，够不到承载图形那条 3:1 的线
+ * （`spike/contrast.mjs` 的 ui 档）。语义由形状承载，与「底是实色浅底」同时成立。
+ */
+export function toast(message: string, kind: ToastKind, ms = 2000): void {
     const node = $('#toast');
     if (!node) return;
-    node.textContent = message;
-    node.classList.add('on');
+    node.innerHTML = `${TOAST_ICON[kind]}<span>${escapeHtml(message)}</span>`;
+    node.classList.remove('ok', 'err', 'info');
+    node.classList.add('on', kind);
     if (toastTimer !== undefined) window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => node.classList.remove('on'), ms);
 }

@@ -281,7 +281,7 @@ export class EntryEditor {
     private commit(): void {
         const title = this.inTitle.value.trim();
         if (!title) {
-            toast('标题不能为空');
+            toast('标题不能为空', 'err');
             this.inTitle.focus();
             return;
         }
@@ -302,6 +302,6 @@ export class EntryEditor {
         const wasEditing = this.editing !== null;
         this.close();
         this.host.onSave(entry);
-        toast(wasEditing ? `已更新「${entry.title}」` : `已新建「${entry.title}」`);
+        toast(wasEditing ? `已更新「${entry.title}」` : `已新建「${entry.title}」`, 'ok');
     }
 }

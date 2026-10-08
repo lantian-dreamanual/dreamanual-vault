@@ -26,5 +26,11 @@ export const icons = {
     refresh: (size = 15) => wrap('refresh-cw', size),
     edit: (size = 15) => wrap('pencil', size),
     trash: (size = 15) => wrap('trash-2', size),
-    plus: (size = 15) => wrap('plus', size)
+    plus: (size = 15) => wrap('plus', size),
+
+    // Toast 的语义图标。默认 16 —— 第八节「Toast」定的就是 ic-16，
+    // 三处调用不在别处复用，默认值直接给规格值，省掉每次写尺寸。
+    ok: (size = 16) => wrap('circle-check', size),
+    err: (size = 16) => wrap('circle-x', size),
+    info: (size = 16) => wrap('info', size)
 } as const;

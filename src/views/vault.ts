@@ -440,7 +440,7 @@ export class VaultView {
                     // 生成即切到明文，值也变了 —— 同一段「落定」动效，别让它硬跳
                     this.pwSwap = true;
                     this.renderAll();
-                    toast('已生成新密码并保存');
+                    toast('已生成新密码并保存', 'ok');
                     break;
                 }
                 case 'edit':
@@ -535,13 +535,13 @@ export class VaultView {
 
     private async copy(value: string): Promise<void> {
         if (!value.trim()) {
-            toast('这一项是空的');
+            toast('这一项是空的', 'err');
             return;
         }
         try {
             await navigator.clipboard.writeText(value);
         } catch {
-            toast('复制失败');
+            toast('复制失败', 'err');
             return;
         }
 
@@ -552,10 +552,10 @@ export class VaultView {
         // 计时没起来不该让提示变成「复制失败」：东西已经复制上了，那是另一件事。
         try {
             const st = await clipboardArm();
-            toast(st.seconds > 0 ? `已复制 · ${st.seconds} 秒后自动清空` : '已复制');
+            toast(st.seconds > 0 ? `已复制 · ${st.seconds} 秒后自动清空` : '已复制', 'ok');
         } catch (err) {
             reportError(`剪贴板计时未启动：${String(err)}`);
-            toast('已复制');
+            toast('已复制', 'ok');
         }
     }
 
@@ -673,7 +673,7 @@ export class VaultView {
     }
 
     toastSaved(message: string): void {
-        toast(message);
+        toast(message, 'ok');
     }
 }
 

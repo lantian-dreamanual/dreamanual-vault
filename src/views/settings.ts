@@ -160,7 +160,7 @@ export class SettingsView {
             return;
         }
         if (!IN_TAURI) {
-            toast('浏览器预览里检查不了更新，请在应用里试');
+            toast('浏览器预览里检查不了更新，请在应用里试', 'info');
             return;
         }
         if (!this.currentVersion) await this.renderVersion();
@@ -211,7 +211,7 @@ export class SettingsView {
         try {
             await openExternal(url);
         } catch (err) {
-            toast(`打开链接失败：${errorText(err)}`, 3600);
+            toast(`打开链接失败：${errorText(err)}`, 'err', 3600);
         }
     }
 
@@ -227,7 +227,7 @@ export class SettingsView {
         try {
             this.config = await settingsGet();
         } catch (err) {
-            toast(`读取设置失败：${errorText(err)}`);
+            toast(`读取设置失败：${errorText(err)}`, 'err');
             return;
         }
 
@@ -246,7 +246,7 @@ export class SettingsView {
     /** 写一项设置。只传改动的那一项 —— 整份覆盖会冲掉 Rust 刚写的时间戳。 */
     private async patch(fields: Record<string, unknown>, failHint: string): Promise<void> {
         if (!IN_TAURI) {
-            toast('浏览器预览里改不了设置，请在应用里试');
+            toast('浏览器预览里改不了设置，请在应用里试', 'info');
             return;
         }
         try {
@@ -255,7 +255,7 @@ export class SettingsView {
             this.config = await settingsUpdate(fields);
             this.applyConfig(this.config);
         } catch (err) {
-            toast(`${failHint}：${errorText(err)}`, 3600);
+            toast(`${failHint}：${errorText(err)}`, 'err', 3600);
             // 失败时把控件拉回磁盘上那份，别让用户以为改成了
             void this.refresh();
         }
@@ -313,7 +313,7 @@ export class SettingsView {
         try {
             await revealInFinder(path);
         } catch (err) {
-            toast(`无法在访达中显示：${errorText(err)}`);
+            toast(`无法在访达中显示：${errorText(err)}`, 'err');
         }
     }
 
@@ -335,9 +335,9 @@ export class SettingsView {
 
         try {
             this.store.renameVault(name);
-            toast(`库名已改为「${name}」`);
+            toast(`库名已改为「${name}」`, 'ok');
         } catch (err) {
-            toast(`改库名失败：${errorText(err)}`, 3600);
+            toast(`改库名失败：${errorText(err)}`, 'err', 3600);
         }
     }
 
@@ -416,22 +416,22 @@ export class SettingsView {
     /** 报告一次备份的结果。**失败不是保存失败**，提示语要写清楚这一点。 */
     private reportBackup(run: Awaited<ReturnType<typeof backupRun>>): void {
         if (run.error) {
-            toast(`备份失败（库已保存）：${run.error}`, 5200);
+            toast(`备份失败（库已保存）：${run.error}`, 'err', 5200);
             return;
         }
         if (run.skipped) {
-            toast(run.skipped);
+            toast(run.skipped, 'info');
             return;
         }
         if (run.outcome) {
             const o = run.outcome;
             if (o.unchanged) {
-                toast('备份目录里已是最新，没有产生新的历史版本', 3600);
+                toast('备份目录里已是最新，没有产生新的历史版本', 'info', 3600);
             } else {
                 const extra = o.rotated
                     ? ` · 旧版本存为 ${o.rotated}${o.pruned ? ` · 清理 ${o.pruned} 份` : ''}`
                     : '';
-                toast(`已备份 ${formatSize(o.bytes)} → ${shortPath(o.dest)}${extra}`, 4200);
+                toast(`已备份 ${formatSize(o.bytes)} → ${shortPath(o.dest)}${extra}`, 'ok', 4200);
             }
         }
     }
@@ -464,7 +464,7 @@ export class SettingsView {
         try {
             picked = await pickVaultFile();
         } catch (err) {
-            toast(`打开文件选择器失败：${errorText(err)}`, 3600);
+            toast(`打开文件选择器失败：${errorText(err)}`, 'err', 3600);
             return;
         }
         if (!picked) return; // 用户取消
@@ -483,10 +483,10 @@ export class SettingsView {
 
         try {
             await this.store.switchPath(picked);
-            toast(`已切换到 ${shortPath(picked)}`);
+            toast(`已切换到 ${shortPath(picked)}`, 'ok');
             this.host.onVaultSwitched();
         } catch (err) {
-            toast(`换库失败：${errorText(err)}`, 3600);
+            toast(`换库失败：${errorText(err)}`, 'err', 3600);
         }
     }
 
@@ -501,10 +501,10 @@ export class SettingsView {
 
         try {
             const info = await this.store.switchPath(null);
-            toast(`已切回默认位置：${shortPath(info.path)}`);
+            toast(`已切回默认位置：${shortPath(info.path)}`, 'ok');
             this.host.onVaultSwitched();
         } catch (err) {
-            toast(`切换失败：${errorText(err)}`, 3600);
+            toast(`切换失败：${errorText(err)}`, 'err', 3600);
         }
     }
 
@@ -537,16 +537,16 @@ export class SettingsView {
         try {
             target = await pickSavePath(exportFileName(this.store.vaultName));
         } catch (err) {
-            toast(`打开保存对话框失败：${errorText(err)}`, 3600);
+            toast(`打开保存对话框失败：${errorText(err)}`, 'err', 3600);
             return;
         }
         if (!target) return; // 用户取消
 
         try {
             const bytes = await this.store.exportTo(target);
-            toast(`已导出 ${formatSize(bytes)}：${shortPath(target)}`, 4200);
+            toast(`已导出 ${formatSize(bytes)}：${shortPath(target)}`, 'ok', 4200);
         } catch (err) {
-            toast(`导出失败：${errorText(err)}`, 4200);
+            toast(`导出失败：${errorText(err)}`, 'err', 4200);
         }
     }
 
@@ -621,7 +621,7 @@ export class SettingsView {
         try {
             picked = await pickBackupDir();
         } catch (err) {
-            toast(`打开目录选择器失败：${errorText(err)}`, 3600);
+            toast(`打开目录选择器失败：${errorText(err)}`, 'err', 3600);
             return;
         }
         if (!picked) return;
@@ -631,7 +631,7 @@ export class SettingsView {
     private async setBackupDir(dir: string | null): Promise<void> {
         await this.patch({ backupDir: dir }, '保存备份目录失败');
         if (this.config?.backupDir === dir && dir) {
-            toast(`备份目录已设为 ${shortPath(dir)}`, 4200);
+            toast(`备份目录已设为 ${shortPath(dir)}`, 'ok', 4200);
         }
     }
 
@@ -640,7 +640,7 @@ export class SettingsView {
         try {
             this.reportBackup(await backupRun(true));
         } catch (err) {
-            toast(`备份失败：${errorText(err)}`, 4200);
+            toast(`备份失败：${errorText(err)}`, 'err', 4200);
         } finally {
             // 状态在任何一条路径上都可能变（成功/失败/被跳过），统一重读一次
             await this.refreshBackupView();
@@ -783,9 +783,9 @@ export class SettingsView {
 
         try {
             await run();
-            toast(done, 4200);
+            toast(done, 'ok', 4200);
         } catch (err) {
-            toast(`重建库失败：${errorText(err)}`, 5600);
+            toast(`重建库失败：${errorText(err)}`, 'err', 5600);
         } finally {
             this.busy = false;
             btn.textContent = idleLabel;
