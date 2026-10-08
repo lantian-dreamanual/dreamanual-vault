@@ -217,7 +217,9 @@
     letter-spacing: 0.08em;
     /* 标签性质，用二级而不是三级。侧栏的底色是材质，三级在它上面算不到 4.5。 */
     color: var(--ink-2);
-    padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-8);
+    padding: var(--sp-2) var(--sp-4) 0 var(--sp-8);
+    /* 与首个分类行拉开一档：标签只有 10px 高，紧贴着 32px 的行会显得挤成一团。 */
+    margin-bottom: var(--sp-8);
 }
 
 /* 分类的新建入口。此前它只活在右键菜单里，而条目（分类里的内容）的创建
@@ -244,7 +246,10 @@
     display: flex;
     align-items: center;
     gap: var(--sp-8);
-    padding: var(--sp-8) var(--sp-8);
+    /* 行高钉在控件档 32：内容行（文字/徽章）高度随字体浮动，靠 padding 撑出来的
+       行高会漂 —— 实测曾漂到 36.5，与视频下载的 32 差了一截。徽章 18px 装得下。 */
+    height: var(--ctl-32);
+    padding: 0 var(--sp-8);
     border-radius: var(--r-8);
     font-size: var(--fs-13);
     color: var(--ink-2);
@@ -266,6 +271,9 @@
     background: var(--accent-soft);
     color: var(--accent-2);
     font-weight: 600;
+    /* accent-soft（950）的亮度与材质底太接近，只靠色相区分不够 —— 补一圈
+       1px accent-line 内描边把行的轮廓定出来。视频下载的 SidebarRow 同款。 */
+    box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 
 .cat-name {
@@ -294,12 +302,12 @@
 }
 
 /* 窗口失焦时的选中态。视频下载的 `SelectState.selectedInactive` 是同一档：
-   底色降到 --panel-3、字色降到 --ink-2，字重不变（那边也只换色）。
-   没有这一层的话，切到别的应用之后侧栏里那个分类仍然亮着强调色，
-   看起来像还握着焦点 —— 它的底色本来由系统绘制、自带这层降级，换成自绘就没了。
-   class 由 main.ts 的 listenWindowActive 切。 */
+   底色保留 accent-soft（暗强调底，亮度远低于材质，不抢眼）、字色降到 --ink-2，
+   描边沿用 accent-line —— 保留「这里选中着」的色相线索。原先降成中性
+   --panel-3，它与材质底的亮度几乎相同，实测选中行直接隐身。
+   字重不变（那边也只换色）。没有这一层的话，切到别的应用之后侧栏里那个
+   分类的状态无从判断。class 由 main.ts 的 listenWindowActive 切。 */
 body.is-blurred .cat.on {
-    background: var(--panel-3);
     color: var(--ink-2);
 }
 
