@@ -452,9 +452,11 @@
 .stage {
     min-width: 0;
     /* 列项默认 min-height:auto 会被内容撑开，把行高一起顶上去。
-       设置面板是唯一内容比窗口高的面板，所以只有它会暴露这个默认值。 */
+       行高锁成容器高度（与 #view-app 同一套修法）：设置面板、主视图的面板
+       都可能比窗口高，靠这一条 + `.pane` 的 min-height:0 把它们压回视口内。 */
     min-height: 0;
     display: grid;
+    grid-template-rows: 100%;
     overflow: hidden;
     background: var(--panel);
 }
@@ -462,12 +464,18 @@
 .pane {
     display: none;
     min-width: 0;
+    /* 不给 0 的话主视图面板会被长内容顶高（连带顶栏出界、内部滚不动） */
+    min-height: 0;
     height: 100%;
 }
 
 #pane-vault.is-active {
     display: grid;
     grid-template-columns: var(--list-w) 1fr;
+    /* 行高锁成面板高度。没有这行的话行高由内容决定：条目一多，列表列和
+       详情列一起被顶高 —— 搜索/新建顶栏被推出视口，`.list` 与 `.pane-detail`
+       的 overflow-y 永不触发（各自「滚不动」）。列项还要配 min-height:0。 */
+    grid-template-rows: 100%;
 }
 
 /* 设置面板**覆盖整个窗口**（含左侧栏），不是右侧那一列。
@@ -495,6 +503,9 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    /* grid 列项默认 min-height:auto，会被长列表撑开而非收缩 —— 顶栏出界、
+       `.list` 滚不动。放开后内部 flex 才能把高度约束传给 `.list`。 */
+    min-height: 0;
     padding-top: var(--titlebar-h);
 }
 
@@ -680,7 +691,11 @@ mark {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    overflow-y: auto;
+    /* 同 `.pane-list`：不放开 min-height，长详情把面板顶高，overflow-y 永不触发 */
+    min-height: 0;
+    /* 顶部（图标+标题）固定，滚动交给 `.detail-body`。这里改 hidden 的话
+       整列不再自己滚 —— 之前是整列滚，头部跟着字段一起滚出视口。 */
+    overflow: hidden;
     background: var(--panel);
     padding-top: var(--titlebar-h);
 }
@@ -753,6 +768,11 @@ mark {
 }
 
 .detail-body {
+    flex: 1;
+    /* flex 子项默认 min-height:auto，字段一长会把这一层顶高、自己却滚不动 ——
+       与 `.list`（592 行注释）同一坑。放开后 overflow-y 才生效。 */
+    min-height: 0;
+    overflow-y: auto;
     padding: 8px 26px 32px;
 }
 
