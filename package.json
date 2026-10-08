@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "check:tokens": "node spike/tokens-sync.mjs",
+    "tokens:sync": "node spike/tokens-sync.mjs --write",
     "tauri": "tauri",
     "app:dev": "tauri dev",
     "app:build": "tauri build --no-bundle",

@@ -42,18 +42,20 @@ export function entryInitial(entry: VaultEntry): string {
 }
 
 /**
- * 分类圆点的可选色：Tailwind v4 的 400 档，按色相升序取 10 个。
+ * 分类圆点的可选色：Tailwind v4 的 300 档，按色相升序取 10 个。
  *
- * 为什么是 400 档：圆点只出现在侧栏分类行，而侧栏底色是 macOS 毛玻璃、不是令牌
- * （实测中位数见 `spike/contrast.mjs` 的 `SIDER_MATERIAL`）。500 档的暗端压在这个底上
- * 会跌到 3:1 以下（violet-500 2.70、blue-500 3.15），400 档最差的一格是 violet-400 4.16:1。
+ * 为什么是 300 档：圆点只出现在侧栏分类行，要同时压住三种底 —— macOS 毛玻璃
+ * （不是令牌，实测中位数见 `spike/contrast.mjs` 的 `SIDER_MATERIAL`）、分类行悬停的
+ * `--panel-3`、选中行的 `--accent-soft`。约束在悬停面那一格，它最亮：
+ * 400 档压上去最差 violet-400 只有 3.64:1，跌到门槛（4.0:1）以下；
+ * 300 档最差的一格是 violet-300 5.62:1，三种底都留有余量。
  * 逐格读数与门禁在同一个脚本里（门槛 4.0:1，比 WCAG 非文本的 3:1 留一档）。
  *
  * 数组顺序 = 颜色面板的展示顺序 = `groupColor()` 的取模顺序。
  */
 export const DOT_COLORS = [
-    '#fb64b6', '#ff8904', '#fdc700', '#9ae600', '#05df72',
-    '#00d5be', '#00d3f2', '#51a2ff', '#a684ff', '#ed6aff'
+    '#f9a8d4', '#fdba74', '#fde047', '#bef264', '#86efac',
+    '#5eead4', '#67e8f9', '#93c5fd', '#c4b5fd', '#f0abfc'
 ] as const;
 
 /** 没设过自定义颜色时的退回色：按分类名哈希取一个固定值，不随条目增减变化。

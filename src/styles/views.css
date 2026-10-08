@@ -19,7 +19,7 @@
     width: 48px;
     height: 48px;
     border-radius: 14px;
-    background: linear-gradient(150deg, var(--brand-1), var(--brand-2));
+    background: linear-gradient(150deg, var(--accent), var(--accent-fill));
     display: grid;
     place-items: center;
     color: #fff;
@@ -148,16 +148,17 @@
        NSVisualEffectView 决定、跟着窗口背后的桌面走 —— 实测约 rgb(82,84,85)
        且随壁纸浮 ±6。所以不能沿用令牌表里「对着 --panel」的值。
 
-       只重写这一个令牌：5.26:1（底色偏亮时 4.73:1）。
+       只重写这一个令牌：9.41:1（底色偏亮时 8.5:1）。全局 --ink-2 在新底色下已到
+       12.09:1，与材质底的要求不同档，故这里仍按材质提亮一档取 neutral-200。
 
        其余落到材质上的文字都走 --ink-2，没有第三级：
          .cat 名称 · .cats-label · .vault-name · .cat-n 徽章（自带 --panel 底）
        唯一的 --ink-3 是 .cats-add 那个 + 图标 —— 图形元素，按非文本 3:1 判，
-       基础令牌的 --ink-3 直接够用（3.56:1，对着实测材质底色）。
+       基础令牌的 --ink-3 直接够用（对着实测材质底色）。
 
        改这里的值之后请重跑 `scripts/a3-probe.sh`：材质底色不是令牌，
        `spike/contrast.mjs` 算不到它。 */
-    --ink-2: #d1d7df;
+    --ink-2: #e5e5e5;
 }
 
 .brand {
@@ -172,7 +173,7 @@
     width: 26px;
     height: 26px;
     border-radius: 8px;
-    background: linear-gradient(150deg, var(--brand-1), var(--brand-2));
+    background: linear-gradient(150deg, var(--accent), var(--accent-fill));
     display: grid;
     place-items: center;
     color: #fff;
@@ -538,7 +539,7 @@
 .search-box .icon-btn {
     width: 36px;
     height: 36px;
-    border-radius: var(--r);
+    border-radius: var(--r-md);
     border: 1px solid var(--line);
     background: var(--panel-2);
 }
@@ -554,7 +555,7 @@
     padding: 0 32px 0 33px;
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: var(--r);
+    border-radius: var(--r-md);
     outline: none;
     font-size: 13px;
     transition: 0.14s;
@@ -671,7 +672,7 @@
 }
 
 mark {
-    background: var(--mark-bg);
+    background: var(--mark-soft);
     color: var(--mark-ink);
     border-radius: 2px;
     padding: 0 1px;
@@ -915,12 +916,12 @@ mark {
 }
 
 .srow:first-of-type {
-    border-radius: var(--r) var(--r) 0 0;
+    border-radius: var(--r-md) var(--r-md) 0 0;
 }
 
 .srow:last-of-type {
     border-bottom: 1px solid var(--line);
-    border-radius: 0 0 var(--r) var(--r);
+    border-radius: 0 0 var(--r-md) var(--r-md);
 }
 
 .srow-k {
@@ -1042,7 +1043,7 @@ select.srow-ctl {
     padding: 3px 10px;
     border-radius: 20px;
     background: var(--panel-3);
-    color: var(--ink-3);
+    color: var(--ink-2);
 }
 
 .pill.ok {
@@ -1051,7 +1052,7 @@ select.srow-ctl {
 }
 
 .pill.warn {
-    background: var(--warn-bg);
+    background: var(--warn-soft);
     color: var(--warn-ink);
 }
 
@@ -1060,7 +1061,7 @@ select.srow-ctl {
    后者才是要人去查 Synology Drive 客户端的那种状态，两者不该长得一样。 */
 .pill.bad {
     background: var(--danger-soft);
-    color: var(--danger);
+    color: var(--danger-ink);
 }
 
 /* 开关 */
@@ -1104,8 +1105,19 @@ select.srow-ctl {
     transition: 0.18s;
 }
 
+/* 开关选中态的底取实心档，与主按钮同色。
+
+   四个 app 共用一条判据：**承载元素（字或图形）的实心块走 `--accent-fill`**——
+   按钮、开关、计数徽章都是它上面压着东西的底，取档看压的东西要多少对比度。
+   `--accent` 只管文字、图标、描边，以及自身就是图形的填充（强度条、扫描条）。
+
+   开关滑块是图形，按非文本 3:1 判：压实心档 5.17:1，压 `--accent` 只有 3.68:1。
+   绿色是例外 —— `emerald-500` 压白滑块只有 2.54:1，取不到 3:1，所以音频转换
+   将来接入时开关只能跟按钮同取实心档（emerald-700）。
+
+   读数由 spike/contrast.mjs 守着，改这里要重跑它。 */
 .switch input:checked + i {
-    background: var(--accent);
+    background: var(--accent-fill);
 }
 
 .switch input:checked + i::after {
@@ -1159,6 +1171,7 @@ select.srow-ctl {
 
 .ctxmenu button.is-danger:hover {
     background: var(--danger-hover);
+    color: var(--danger-ink);
 }
 
 /* ---------- 解锁卡片：库路径与弱密码提示 ---------- */
@@ -1179,7 +1192,7 @@ select.srow-ctl {
     text-align: left;
     padding: 9px 11px;
     border: 1px solid var(--line);
-    border-radius: var(--r);
+    border-radius: var(--r-md);
     background: var(--panel-2);
     color: var(--ink-2);
     font: inherit;
@@ -1245,7 +1258,7 @@ select.srow-ctl {
     gap: 8px;
     padding: 6px 10px;
     border: 1px solid var(--line);
-    border-radius: var(--r);
+    border-radius: var(--r-md);
     background: var(--panel);
 }
 

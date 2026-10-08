@@ -2,7 +2,8 @@
  * 配色对比度门禁（PRD §7.3 / M4 C1）。
  *
  * 目的：把「配色里每一对前景/背景都达标」从一次性的目测变成会咬人的断言。
- * 令牌只有一个来源（src/styles/tokens.css），所以这里**不硬编码任何颜色**——
+ * 令牌只有一个来源（生成物 src/styles/tokens.generated.css，由 design/build.mjs 产出；
+ * 本地 tokens.css 只剩布局常量），所以这里**不硬编码任何颜色**——
  * 期望值全部从令牌文件解析出来后现算。改配色时忘了某一对，门禁就红。
  *
  * 分档（按 WCAG 2.1 AA）：
@@ -20,7 +21,7 @@
  * scripts/a3-probe.sh，本脚本只覆盖侧栏里**自带不透明底**的两处（.cat-n 徽章、
  * .btn-gho 按钮），它们的底色仍是令牌，文字色则取 `.sider` 作用域里的重定义值。
  *
- * 另有一条「色值不外泄」断言：tokens.css 之外出现的十六进制色值必须逐条登记在
+ * 另有一条「色值不外泄」断言：令牌文件之外出现的十六进制色值必须逐条登记在
  * 下面的 ALLOWED_HEX 里并写明理由。散在规则与 TS 里的裸色值不跟着令牌走，
  * 换配色时就是一片读不清 —— 这条断言就是用来把它们逼出来的。
  * 扫描是朴素的，注释里提到的色值也算数；真需要在某处写下具体色值，
@@ -92,9 +93,15 @@ function blockOf(css, selector) {
     return open < 0 || close < 0 ? '' : css.slice(open + 1, close);
 }
 
+/**
+ * 配色令牌来自生成物 `tokens.generated.css`（design/build.mjs 产出，入库存一份）；
+ * 本地 `tokens.css` 只剩布局常量。两份都读并合并成一张表 —— 将来本地若再加颜色
+ * 令牌，这里不必改，门禁自动纳入。
+ */
 function readTokens() {
-    const css = fs.readFileSync(path.join(STYLES, 'tokens.css'), 'utf8');
-    return varsIn(blockOf(css, ':root {'));
+    const files = ['tokens.generated.css', 'tokens.css'];
+    return Object.assign({}, ...files.map((f) =>
+        varsIn(blockOf(fs.readFileSync(path.join(STYLES, f), 'utf8'), ':root {'))));
 }
 
 /** 侧栏作用域里被重定义的文字令牌。只有这一个 —— 见 views.css 的注释。 */
@@ -145,23 +152,29 @@ const PAIRS = [
     { fg: '--ink', bg: '--panel-2', tier: 'text', where: '.inp 输入框里的值（body 继承 --ink）' },
     { fg: '--ink-2', bg: '--panel', tier: 'text', where: '.block-v 备注、tag、.pw-col 标签、侧栏「分类」与 .sider-foot 的 .vault-name' },
     { fg: '--ink-2', bg: '--panel-2', tier: 'text', where: '.btn-gho 按钮、解锁页的 .vault-row 路径（底色 --panel-2）' },
-    { fg: '--ink-2', bg: '--panel-3', tier: 'text', where: '.tag 与 .ava 的文字（底色是 --panel-3）' },
+    { fg: '--ink-2', bg: '--panel-3', tier: 'text', where: '.tag 与 .ava 的文字、.pill 的底（底色是 --panel-3）' },
+    { fg: '--ink', bg: '--panel-3', tier: 'text', where: '.icon-btn 悬停时的图标与文字' },
     { fg: '--ink-3', bg: '--panel', tier: 'text', where: '.row-k 字段标签、.row-v.muted「未填写」、空态、.hint' },
     { fg: '--ink-3', bg: '--panel-2', tier: 'text', where: '列表副标题 .item-sub、.vault-row-chev 的箭头（--panel-2）' },
-    { fg: '--ink-3', bg: '--panel-3', tier: 'text', where: '.pill 的文字、.icon-btn 悬停面' },
     { fg: '--accent', bg: '--panel', tier: 'text', where: '.save-state.is-busy 之类的强调文字、选中态的 .cat / .item' },
     { fg: '--accent-2', bg: '--accent-soft', tier: 'text', where: '选中的分类、.detail-ava、.tag-cat、.pill.ok' },
     { fg: '--accent-2', bg: '--panel', tier: 'text', where: '「请我喝杯咖啡」的咖啡图标与文字（设置页 .srow-lead 常亮强调色）' },
     { fg: '--accent-2', bg: '--panel-2', tier: 'text', where: '同一行悬停时（.srow-hit:hover 把底色换成 --panel-2）' },
     { fg: '--danger', bg: '--panel', tier: 'text', where: '.lock-msg、.ctxmenu 危险项、.save-state.is-error' },
-    { fg: '--danger', bg: '--danger-soft', tier: 'text', where: '.btn-danger 与 .pill.bad' },
-    { fg: '--danger', bg: '--danger-hover', tier: 'text', where: '.btn-danger 悬停、危险菜单项悬停' },
-    { fg: '--warn-ink', bg: '--warn-bg', tier: 'text', where: '.pill.warn 与警告条' },
-    { fg: '--mark-ink', bg: '--mark-bg', tier: 'text', where: '搜索命中的 <mark>' },
+    { fg: '--danger-ink', bg: '--danger-soft', tier: 'text', where: '.btn-danger 与 .pill.bad' },
+    { fg: '--danger-ink', bg: '--danger-hover', tier: 'text', where: '.btn-danger 悬停、危险菜单项悬停' },
+    { fg: '--warn-ink', bg: '--warn-soft', tier: 'text', where: '.pill.warn 与警告条' },
+    { fg: '--mark-ink', bg: '--mark-soft', tier: 'text', where: '搜索命中的 <mark>' },
     { fg: '--toast-ink', bg: '--toast-bg', tier: 'text', where: 'toast' },
     { fg: '--ok', bg: '--panel', tier: 'ui', where: '强度条满格填充（配「强」字）' },
     { fg: '--warn', bg: '--panel', tier: 'ui', where: '强度条中档填充（配「一般」字）' },
-    { fg: '--accent', bg: '--panel', tier: 'ui', where: '强度条扫描、开关选中态' },
+    { fg: '--accent', bg: '--panel', tier: 'ui', where: '强度条扫描的填充' },
+
+    // 开关：选中态的块底取实心档（--accent-fill），上面压白色滑块。
+    // 四个 app 共用这条 —— 承载元素（字或图形）的实心块一律走实心档，
+    // --accent 只留给文字、图标、描边和自身成图形的填充（强度条、扫描条）。
+    { fg: '--accent-fill', bg: '--panel', tier: 'ui', where: '开关选中态的块底（设置页两处 .switch）' },
+    { fgHex: '#ffffff', bg: '--accent-fill', tier: 'ui', where: '开关选中态的白色滑块' },
 
     // 主按钮：白字压在实心底上。实心底是独立令牌（--accent-fill / -2）——
     // 深色档的 --accent 太亮，白字压上去只有 3.68:1，两个角色不能共用一个值。
@@ -184,22 +197,22 @@ const TIER_MIN = { text: 4.5, large: 3.0, ui: 3.0 };
  */
 const ALLOWED_HEX = [
     { file: 'src/styles/base.css', hex: '#fff', reason: '.btn-pri 主按钮文字：压在实心 --accent-fill 上，正白' },
-    { file: 'src/styles/views.css', hex: '#fff', reason: '.lock-mark / .brand-ic 品牌渐变上的图标与 .switch i::after 开关滑块（图形，非文字）' },
+    { file: 'src/styles/views.css', hex: '#fff', reason: '.lock-mark / .brand-ic 品牌渐变上的图标与 .switch i::after 开关滑块（图形，非文字；滑块压在 --accent-fill 上，断言见 PAIRS 表）' },
     {
         file: 'src/styles/views.css',
-        hex: '#d1d7df',
-        reason: '侧栏 --ink-2 覆盖值。侧栏底色是 macOS 材质（不是令牌），只能在 .sider 作用域里另给，理由见该处注释与 scripts/a3-probe.sh'
+        hex: '#e5e5e5',
+        reason: '侧栏 --ink-2 覆盖值（neutral-200）。侧栏底色是 macOS 材质（不是令牌），只能在 .sider 作用域里另给，理由见该处注释与 scripts/a3-probe.sh'
     },
-    { file: 'src/vault/model.ts', hex: '#fb64b6', reason: '分类圆点色板（Tailwind v4 400 档，10 个一组），对比度断言见本脚本「分类圆点」一节' },
-    { file: 'src/vault/model.ts', hex: '#ff8904', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#fdc700', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#9ae600', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#05df72', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#00d5be', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#00d3f2', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#51a2ff', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#a684ff', reason: '同上' },
-    { file: 'src/vault/model.ts', hex: '#ed6aff', reason: '同上' }
+    { file: 'src/vault/model.ts', hex: '#f9a8d4', reason: '分类圆点色板（Tailwind v4 300 档，10 个一组），对比度断言见本脚本「分类圆点」一节' },
+    { file: 'src/vault/model.ts', hex: '#fdba74', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#fde047', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#bef264', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#86efac', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#5eead4', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#67e8f9', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#93c5fd', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#c4b5fd', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#f0abfc', reason: '同上' }
 ];
 
 // ----------------------------------------------------------------- 主流程
@@ -290,7 +303,7 @@ function main() {
     const stray = [];
     for (const file of walk(SRC)) {
         const rel = path.relative(ROOT, file);
-        if (rel === 'src/styles/tokens.css') continue; // 令牌唯一来源，整份豁免
+        if (/^src\/styles\/tokens(\.generated)?\.css$/.test(rel)) continue; // 令牌来源（生成物 + 本地布局），整份豁免
         const text = fs.readFileSync(file, 'utf8');
         for (const m of text.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
             const hex = m[0].toLowerCase();
