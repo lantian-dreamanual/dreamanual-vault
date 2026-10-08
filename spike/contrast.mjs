@@ -123,7 +123,9 @@ const DOT_MIN = 4.0;
  * 窗口 x0=390 / y0≈212，取侧栏 496 像素宽的中位数；同一次测量里详情面板的中位数
  * 正好等于 `--panel`，说明取样位置是准的。改侧栏材质（`windowEffects`）后要重量。
  */
-const SIDER_MATERIAL = '#33383b';
+// 侧栏底色。2026-10-09 材质退役（NSVisualEffectView 换成铺 --bg），从实测量
+// #33383b 回到令牌值；变量名留着，圆点与焦点环的「侧栏底」取它。
+const SIDER_MATERIAL = '#0a0a0a';
 
 /** 分类圆点色板：从 `src/vault/model.ts` 的 `DOT_COLORS` 现读，不在本脚本里再抄一份。 */
 function readDotColors() {
@@ -150,17 +152,20 @@ const PAIRS = [
     { fg: '--ink', bg: '--panel', tier: 'text', where: '条目标题、详情正文、右键菜单项、设置面板正文' },
     { fg: '--ink', bg: '--bg', tier: 'text', where: '解锁页落在 --bg 上的正文' },
     { fg: '--ink', bg: '--panel-2', tier: 'text', where: '.inp 输入框里的值（body 继承 --ink）' },
-    { fg: '--ink-2', bg: '--panel', tier: 'text', where: '.block-v 备注、tag、.pw-col 标签、侧栏「分类」与 .sider-foot 的 .vault-name' },
-    { fg: '--ink-2', bg: '--panel-2', tier: 'text', where: '.btn-gho 按钮、解锁页的 .vault-row 路径（底色 --panel-2）' },
-    { fg: '--ink-2', bg: '--panel-3', tier: 'text', where: '.tag 与 .ava 的文字、.pill 的底（底色是 --panel-3）' },
+    { fg: '--ink-2', bg: '--panel', tier: 'text', where: '.block-v 备注、tag、.pw-col 标签' },
+    { fg: '--ink-2', bg: '--bg', tier: 'text', scope: 'sider', where: '侧栏文字（2026-10-09 材质退役，底色回令牌 --bg）：.cat 名称、.cats-label、.vault-name' },
+    { fg: '--ink-2', bg: '--panel-2', tier: 'text', where: '.btn-gho 按钮文字（落在主内容区 --panel 上的）' },
+    { fg: '--ink-2', bg: '--panel-3', tier: 'text', where: '.tag 与 .ava 的文字、.pill 的底，以及卡片抬 panel-2 后的次级块：.vault-row / .loc-row 路径、悬停设置行的副标题、卡片内 .btn-gho 文字' },
     { fg: '--ink', bg: '--panel-3', tier: 'text', where: '.icon-btn 悬停时的图标与文字' },
     { fg: '--ink-3', bg: '--panel', tier: 'text', where: '.row-k 字段标签、.row-v.muted「未填写」、空态、.hint' },
-    { fg: '--ink-3', bg: '--panel-2', tier: 'text', where: '列表副标题 .item-sub、.vault-row-chev 的箭头（--panel-2）' },
+    { fg: '--ink-3', bg: '--panel-2', tier: 'text', where: '列表副标题 .item-sub、解锁/弹窗里的 .hint 与副文本（--panel-2）' },
+    { fg: '--ink-3', bg: '--panel-3', tier: 'ui', where: '.vault-row-chev 的箭头（.vault-row 抬到 panel-3；图形按 3:1 判）' },
     { fg: '--accent', bg: '--panel', tier: 'text', where: '.save-state.is-busy 的强调文字（保存中气泡）' },
     { fg: '--accent-2', bg: '--accent-soft', tier: 'text', where: '.detail-ava、.tag-cat、.pill.ok' },
     { fg: '--accent-2', bg: '--panel', tier: 'text', where: '「请我喝杯咖啡」的咖啡图标与文字（设置页 .srow-lead 常亮强调色）' },
-    { fg: '--accent-2', bg: '--panel-2', tier: 'text', where: '同一行悬停时（.srow-hit:hover 把底色换成 --panel-2）' },
-    { fg: '--danger', bg: '--panel', tier: 'text', where: '.lock-msg、.ctxmenu 危险项、.save-state.is-error' },
+    { fg: '--accent-2', bg: '--panel-2', tier: 'text', where: '「请我喝杯咖啡」行悬停（.srow-link 豁免于通用悬停底 panel-3，保持 panel-2 —— accent-2 压 panel-3 只有 4.08）' },
+    { fg: '--danger', bg: '--panel', tier: 'text', where: '.ctxmenu 危险项、.save-state.is-error' },
+    { fg: '--danger-ink', bg: '--panel-2', tier: 'text', where: '.lock-msg（解锁卡抬 panel-2 后从 --danger 换 -ink 档，基础档只剩 4.3）' },
     { fg: '--danger-ink', bg: '--danger-soft', tier: 'text', where: '.btn-danger 与 .pill.bad' },
     { fg: '--danger-ink', bg: '--danger-hover', tier: 'text', where: '.btn-danger 悬停、危险菜单项悬停' },
     { fg: '--warn-ink', bg: '--warn-soft', tier: 'text', where: '.pill.warn 与警告条' },
@@ -277,7 +282,7 @@ function main() {
     );
 
     const dotBacks = [
-        { label: '侧栏材质（实测 ' + SIDER_MATERIAL + '）', rgb: parseHex(SIDER_MATERIAL) },
+        { label: '侧栏 --bg', rgb: parseHex(SIDER_MATERIAL) },
         { label: '--panel-3 悬停', rgb: tokens['--panel-3'] },
         { label: '--accent-soft 选中', rgb: tokens['--accent-soft'] }
     ].filter((b) => b.rgb);
@@ -332,7 +337,7 @@ function main() {
         { label: '--panel', rgb: tokens['--panel'] },
         { label: '--panel-2', rgb: tokens['--panel-2'] },
         { label: '--panel-3', rgb: tokens['--panel-3'] },
-        { label: '侧栏材质（实测 ' + SIDER_MATERIAL + '）', rgb: parseHex(SIDER_MATERIAL) }
+        { label: '侧栏 --bg', rgb: parseHex(SIDER_MATERIAL) }
     ].filter((b) => b.rgb);
 
     check(

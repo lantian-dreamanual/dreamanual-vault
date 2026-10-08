@@ -204,6 +204,24 @@ svg {
     border-color: var(--accent-line);
 }
 
+/* 卡片（.modal / .lock-card / .srow，均已抬到 panel-2）里的输入件跟着抬一档
+   —— 设计系统「输入框底色」的另一半规则：落在卡片里用 panel-3。落在主内容
+   区（panel）上的 .inp 保持 panel-2，不受这条影响。 */
+.modal .inp,
+.lock-card .inp,
+.srow .inp {
+    background: var(--panel-3);
+}
+
+/* 同理，卡片里的次级按钮抬一档：按钮底与卡片底同为 panel-2 时只剩边框可辨。
+   抬到 panel-3 后，全局 .btn-gho:hover 的底色规则（panel-3）在这里落到同一
+   档 —— 悬停的底反馈由字色（ink-2 → ink）承担。 */
+.modal .btn-gho,
+.lock-card .btn-gho,
+.srow .btn-gho {
+    background: var(--panel-3);
+}
+
 textarea.inp {
     height: auto;
     min-height: 84px;
@@ -358,7 +376,8 @@ select.inp {
 .modal {
     width: 100%;
     max-width: 470px;
-    background: var(--panel);
+    /* 卡片档 panel-2（向投资监控看齐，同 .lock-card）。 */
+    background: var(--panel-2);
     border: 1px solid var(--line);
     border-radius: var(--r-16);
     box-shadow: var(--shadow-modal);

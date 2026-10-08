@@ -8,7 +8,10 @@
 .lock-card {
     width: 100%;
     max-width: 392px;
-    background: var(--panel);
+    /* 卡片抬到 panel-2（2026-10-09，向投资监控的卡片档看齐）：原先与主内容区
+       同用 --panel，只靠 1px 边框分层。四端统一的口径是「主区 panel、卡片
+       panel-2」，卡片自亮一档，边框退居辅助。 */
+    background: var(--panel-2);
     border: 1px solid var(--line);
     border-radius: var(--r-16);
     padding: 34px 32px 26px;
@@ -37,7 +40,9 @@
 
 .lock-msg {
     font-size: var(--fs-12);
-    color: var(--danger);
+    /* 压 --danger 基础档是为 --panel 底选的（4.76:1）；解锁卡抬到 panel-2 后
+       只剩 4.3，换 -ink 档（8.5:1）。浅红也是错误文字族的常规档。 */
+    color: var(--danger-ink);
     min-height: 18px;
     margin-top: var(--sp-2);
     display: flex;
@@ -130,10 +135,13 @@
 /* ---------- 侧栏 ---------- */
 
 .sider {
-    /* 侧栏材质（PRD §7.2）：这里刻意**不铺底**。Tauri 按 windowEffects 把
-       NSVisualEffectView（material = sidebar）插在整个 WKWebView 下面，
-       网页留空的区域就直接显示它。铺任何底色都会把材质盖死。 */
-    background: transparent;
+    /* 侧栏固定底色（2026-10-09 用户拍板，去透壁纸质感）：原先 transparent +
+       Tauri 插在 WKWebView 下面的 NSVisualEffectView（material = sidebar），
+       底色跟着壁纸与窗口焦点浮动（实测 rgb 82,84,85 ±6、失焦整条压暗）——
+       四端并排看侧栏永远对不齐。现在铺 --bg（neutral-950），比主内容区
+       （--panel，neutral-900）深一档，层级与 macOS「侧栏更深」惯例一致。
+       网页自此整窗不透明，底下的材质视图被完全盖住，视觉上不再参与。 */
+    background: var(--bg);
     border-right: 1px solid var(--line);
     display: flex;
     flex-direction: column;
@@ -144,21 +152,10 @@
     overflow: hidden;
     padding-top: var(--layout-titlebar);
 
-    /* 材质上的文字色。侧栏是唯一「底色不来自令牌」的区域：底色由
-       NSVisualEffectView 决定、跟着窗口背后的桌面走 —— 实测约 rgb(82,84,85)
-       且随壁纸浮 ±6。所以不能沿用令牌表里「对着 --panel」的值。
-
-       只重写这一个令牌：9.41:1（底色偏亮时 8.5:1）。全局 --ink-2 在新底色下已到
-       12.09:1，与材质底的要求不同档，故这里仍按材质提亮一档取 neutral-200。
-
-       其余落到材质上的文字都走 --ink-2，没有第三级：
-         .cat 名称 · .cats-label · .vault-name · .cat-n 徽章（自带 --panel 底）
-       唯一的 --ink-3 是 .cats-add 那个 + 图标 —— 图形元素，按非文本 3:1 判，
-       基础令牌的 --ink-3 直接够用（对着实测材质底色）。
-
-       改这里的值之后请重跑 `scripts/a3-probe.sh`：材质底色不是令牌，
-       `spike/contrast.mjs` 算不到它。 */
-    --ink-2: #e5e5e5;
+    /* 材质退役后侧栏底色回到令牌（--bg），文字色不再需要局部重定义：
+       原先按实测材质底 rgb(82,84,85) 单独提亮到 #e5e5e5，现在全局 --ink-2
+       压在 --bg 上 15.5:1，比材质时代更宽松。材质底不是令牌、contrast.mjs
+       算不到它的那段历史（scripts/a3-probe.sh）随之作废。 */
 }
 
 .brand {
@@ -933,7 +930,10 @@ mark {
     padding: var(--sp-12) var(--sp-14);
     border: 1px solid var(--line);
     border-bottom: none;
-    background: var(--panel);
+    /* 设置页「卡片」抬到 panel-2（2026-10-09，向投资监控的卡片档看齐）：
+       原先与主内容区同用 --panel 只靠边框分层。悬停态 .srow-hit:hover 随之
+       从 panel-2 提到 panel-3，保持「行悬停比分组底亮一档」。 */
+    background: var(--panel-2);
 }
 
 .srow:first-of-type {
@@ -1025,6 +1025,18 @@ select.srow-ctl {
 }
 
 .srow-hit:hover {
+    background: var(--panel-3);
+}
+
+/* 悬停底加深一档后，行内的次级副标题跟着提一档 —— --ink-3 压 panel-3
+   只有 4.11:1，不够正文 4.5。主标题 --ink 不受影响（9.51:1）。 */
+.srow-hit:hover .srow-k span {
+    color: var(--ink-2);
+}
+
+/* 「请我喝杯咖啡」行悬停保持组底 panel-2：它的强调字是常亮的 accent-2，
+   压悬停底 panel-3 只有 4.08:1。悬停反馈由 chev 箭头转蓝承担。 */
+.srow-link .srow-hit:hover {
     background: var(--panel-2);
 }
 
@@ -1214,7 +1226,8 @@ select.srow-ctl {
     padding: var(--sp-8) var(--sp-12);
     border: 1px solid var(--line);
     border-radius: var(--r-8);
-    background: var(--panel-2);
+    /* .lock-card 抬到 panel-2 后这里跟着抬：卡片内的次级块取相邻一档。 */
+    background: var(--panel-3);
     color: var(--ink-2);
     font: inherit;
     cursor: pointer;
@@ -1280,7 +1293,8 @@ select.srow-ctl {
     padding: var(--sp-6) var(--sp-10);
     border: 1px solid var(--line);
     border-radius: var(--r-8);
-    background: var(--panel);
+    /* 建库卡片（.lock-card，panel-2）内的次级块，取相邻一档。 */
+    background: var(--panel-3);
 }
 
 .loc-text {
