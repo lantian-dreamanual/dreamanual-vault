@@ -420,26 +420,46 @@ btnVault.addEventListener('click', () => {
 // ------------------------------------------------------------------ 保存状态
 
 let lastSaveError: string | null = null;
+let saveHideTimer: number | null = null;
+/** 上一次渲染过的保存状态。store 的订阅还会因库名、条目数等别的变化触发，
+    只比这个字段才能分辨「真的又保存了一次」和「其它东西变了」——
+    否则浮层会被无关的订阅反复点亮。 */
+let lastSaveState: string | null = null;
+
+function clearSaveHideTimer(): void {
+    if (saveHideTimer !== null) {
+        window.clearTimeout(saveHideTimer);
+        saveHideTimer = null;
+    }
+}
 
 store.subscribe((status) => {
-    saveStateEl.className = 'save-state';
     // 解锁 / 建库 / 换库都会经过这个唯一的漏斗，库名挂在这里就不会漏更新
     refreshVaultLabel();
 
     if (!store.isOpen()) {
+        clearSaveHideTimer();
+        saveStateEl.className = 'save-state';
         saveStateEl.textContent = '';
         lastSaveError = null;
+        lastSaveState = null;
         return;
     }
+
+    if (status.saveState === lastSaveState) return;
+    lastSaveState = status.saveState;
+
+    clearSaveHideTimer();
+    saveStateEl.className = 'save-state';
 
     switch (status.saveState) {
         case 'saving':
             saveStateEl.textContent = '保存中…';
-            saveStateEl.classList.add('is-busy');
+            saveStateEl.classList.add('is-busy', 'is-on');
             break;
         case 'error':
             saveStateEl.textContent = '保存失败，改动暂存在内存里';
-            saveStateEl.classList.add('is-error');
+            saveStateEl.classList.add('is-error', 'is-on');
             if (status.error && status.error !== lastSaveError) {
                 lastSaveError = status.error;
                 toast(`保存失败：${status.error}`, 'err', 3200);
@@ -448,6 +468,12 @@ store.subscribe((status) => {
         case 'saved': {
             lastSaveError = null;
             saveStateEl.textContent = status.savedAt ? `已保存 ${clockTime(status.savedAt)}` : '已保存';
+            saveStateEl.classList.add('is-on');
+            // 「已保存」是默认态，常挂着就是噪声：露一下就走。
+            saveHideTimer = window.setTimeout(() => {
+                saveHideTimer = null;
+                saveStateEl.classList.remove('is-on');
+            }, 2000);
             break;
         }
         default:

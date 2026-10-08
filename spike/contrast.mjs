@@ -156,8 +156,8 @@ const PAIRS = [
     { fg: '--ink', bg: '--panel-3', tier: 'text', where: '.icon-btn 悬停时的图标与文字' },
     { fg: '--ink-3', bg: '--panel', tier: 'text', where: '.row-k 字段标签、.row-v.muted「未填写」、空态、.hint' },
     { fg: '--ink-3', bg: '--panel-2', tier: 'text', where: '列表副标题 .item-sub、.vault-row-chev 的箭头（--panel-2）' },
-    { fg: '--accent', bg: '--panel', tier: 'text', where: '.save-state.is-busy 之类的强调文字、选中态的 .cat / .item' },
-    { fg: '--accent-2', bg: '--accent-soft', tier: 'text', where: '选中的分类、.detail-ava、.tag-cat、.pill.ok' },
+    { fg: '--accent', bg: '--panel', tier: 'text', where: '.save-state.is-busy 的强调文字（保存中气泡）' },
+    { fg: '--accent-2', bg: '--accent-soft', tier: 'text', where: '.detail-ava、.tag-cat、.pill.ok' },
     { fg: '--accent-2', bg: '--panel', tier: 'text', where: '「请我喝杯咖啡」的咖啡图标与文字（设置页 .srow-lead 常亮强调色）' },
     { fg: '--accent-2', bg: '--panel-2', tier: 'text', where: '同一行悬停时（.srow-hit:hover 把底色换成 --panel-2）' },
     { fg: '--danger', bg: '--panel', tier: 'text', where: '.lock-msg、.ctxmenu 危险项、.save-state.is-error' },
@@ -180,6 +180,9 @@ const PAIRS = [
     // 深色档的 --accent 太亮，白字压上去只有 3.68:1，两个角色不能共用一个值。
     { fgHex: '#ffffff', bg: '--accent-fill', tier: 'text', where: '.btn-pri 主按钮文字' },
     { fgHex: '#ffffff', bg: '--accent-fill-2', tier: 'text', where: '.btn-pri 悬停' },
+    // 侧栏选中行：大面积实心块单独取下一档（fill-2 / 700），白字 6.3:1。
+    // 600 档铺满一整行偏亮，且白字只有 4.66:1。
+    { fgHex: '#ffffff', bg: '--accent-fill-2', tier: 'text', where: '侧栏选中行 .cat.on' },
 
     // 侧栏里自带不透明底的两处（文字色取 .sider 作用域的重定义值）。
     // 落在材质上的文字不在此表 —— 底色不是令牌，由 scripts/a3-probe.sh 实测。

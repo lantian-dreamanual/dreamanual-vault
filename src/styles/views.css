@@ -269,9 +269,13 @@
 
 .cat.on {
     /* 实心主色底（2026-10-09 用户拍板）：accent-soft（950）与侧栏材质亮度太近，
-       描边/字色都救不回辨识度。实心 accent-fill + on-accent 白字是令牌表里
-       现成的「实心块」组合（--accent-fill 压实底、--on-accent 压实心），4.66:1。 */
-    background: var(--accent-fill);
+       描边/字色都救不回辨识度。
+
+       取的是**下一档** --accent-fill-2（blue-700）而不是 --accent-fill（600）：
+       选中行是一整条大面积实心块，600 档铺满一行偏亮；700 档压白字 6.3:1，
+       比 600 的 4.66:1 更宽松，视觉也沉得住。这一档在令牌表里原本只给实心块
+       悬停用，选中行按「大面积」单独取它。 */
+    background: var(--accent-fill-2);
     color: var(--on-accent);
     font-weight: 600;
 }
@@ -296,10 +300,10 @@
 }
 
 .cat.on .cat-n {
-    /* 实心主色底上徽章反白：on-accent 底 + accent-fill 字（白上 4.66:1），
+    /* 实心主色底上徽章反白：on-accent 底 + accent-fill-2 字（与选中底同档），
        transparent 保住 1px 边框宽度、行高不跳。 */
     background: var(--on-accent);
-    color: var(--accent-fill);
+    color: var(--accent-fill-2);
     border-color: transparent;
 }
 
@@ -399,6 +403,8 @@ body.is-blurred .cat.on .cat-n {
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
+    /* 保存状态气泡的定位参照。它浮在本身上方，不占这里的高度。 */
+    position: relative;
 }
 
 .sider-foot-row {
@@ -1305,13 +1311,42 @@ select.srow-ctl {
     color: var(--warn-ink);
 }
 
-/* ---------- 侧栏底部的保存状态 ---------- */
+/* ---------- 保存状态（浮层气泡） ----------
+   原先是底栏里的一行，`min-height: 15px` 常驻占位（防「已保存」出现时底栏
+   跳动）。代价是分隔线下方永远空着一条 15px —— 与视频下载并排看，就是
+   「线到内容的距离比对面大」的来源。占位本身在，间距规范调不动它。
+
+   改成气泡浮在分隔线**之上**：不参与布局，只在保存中 / 保存失败 / 刚保存完
+   时出现，其余时刻完全收起（opacity + visibility，不可点击）。出现时机由
+   main.ts 切 .is-on。 */
 
 .save-state {
+    position: absolute;
+    left: var(--sp-16);
+    right: var(--sp-16);
+    /* 百分比参照 .sider-foot 的 padding box，100% 只到 border-top 的下缘，
+       再加 1px 跨过分隔线本身，气泡才落在线的上方。 */
+    bottom: calc(100% + var(--sp-8) + 1px);
+    z-index: 3;
     font-size: var(--fs-12);
-    color: var(--ink-3);
-    min-height: 15px;
-    padding: 0 var(--sp-6);
+    line-height: 1.4;
+    color: var(--ink-2);
+    background: var(--panel);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-6);
+    padding: var(--sp-4) var(--sp-8);
+    box-shadow: var(--shadow-toast);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(var(--sp-4));
+    transition: var(--mo-fast);
+    pointer-events: none;
+}
+
+.save-state.is-on {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
 }
 
 .save-state.is-error {

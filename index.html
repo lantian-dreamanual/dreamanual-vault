@@ -188,6 +188,8 @@
          现在底栏只回答一个问题：**现在开的是哪个库**。左侧点开是换库菜单，
          右侧两个图标是与库无关的全局动作（锁定、设置）—— 设置另有 ⌘, 。 -->
     <div class="sider-foot">
+      <!-- 保存状态是浮层（绝对定位、不占流），视觉上浮在分隔线之上、底栏内容的上方。
+           放在底栏里只是为了拿它当定位参照，出现时机由 main.ts 切 .is-on。 -->
       <div class="save-state" id="save-state"></div>
       <div class="sider-foot-row">
         <button class="vault-switch" id="btn-vault" type="button" title="切换密码库">
