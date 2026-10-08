@@ -450,7 +450,7 @@ select.inp {
     pointer-events: none;
     transition: var(--mo-base);
     z-index: 80;
-    box-shadow: var(--shadow-card);
+    box-shadow: var(--shadow-toast);
     display: flex;
     align-items: center;
     gap: var(--sp-6);
