@@ -712,7 +712,7 @@ mark {
     color: var(--ink-3);
     font-size: var(--fs-12);
     text-align: center;
-    line-height: 2;
+    line-height: 1.9;
 }
 
 .detail-head {
