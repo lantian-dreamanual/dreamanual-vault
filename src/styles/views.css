@@ -268,12 +268,12 @@
 }
 
 .cat.on {
-    background: var(--accent-soft);
-    color: var(--accent-2);
+    /* 实心主色底（2026-10-09 用户拍板）：accent-soft（950）与侧栏材质亮度太近，
+       描边/字色都救不回辨识度。实心 accent-fill + on-accent 白字是令牌表里
+       现成的「实心块」组合（--accent-fill 压实底、--on-accent 压实心），4.66:1。 */
+    background: var(--accent-fill);
+    color: var(--on-accent);
     font-weight: 600;
-    /* accent-soft（950）的亮度与材质底太接近，只靠色相区分不够 —— 补一圈
-       1px accent-line 内描边把行的轮廓定出来。视频下载的 SidebarRow 同款。 */
-    box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 
 .cat-name {
@@ -296,24 +296,27 @@
 }
 
 .cat.on .cat-n {
-    background: var(--panel);
-    color: var(--accent-2);
-    border-color: var(--accent-line);
+    /* 实心主色底上徽章反白：on-accent 底 + accent-fill 字（白上 4.66:1），
+       transparent 保住 1px 边框宽度、行高不跳。 */
+    background: var(--on-accent);
+    color: var(--accent-fill);
+    border-color: transparent;
 }
 
 /* 窗口失焦时的选中态。视频下载的 `SelectState.selectedInactive` 是同一档：
-   底色保留 accent-soft（暗强调底，亮度远低于材质，不抢眼）、字色降到 --ink-2，
-   描边沿用 accent-line —— 保留「这里选中着」的色相线索。原先降成中性
-   --panel-3，它与材质底的亮度几乎相同，实测选中行直接隐身。
-   字重不变（那边也只换色）。没有这一层的话，切到别的应用之后侧栏里那个
-   分类的状态无从判断。class 由 main.ts 的 listenWindowActive 切。 */
+   底色从实心 accent-fill 掉回 accent-soft（暗强调底），字保持 on-accent ——
+   亮度降一截、轮廓还在，比降到中性底可辨识（中性 panel-3 与材质亮度几乎
+   相同，实测选中行直接隐身）。字重不变（那边也只换色）。
+   class 由 main.ts 的 listenWindowActive 切。 */
 body.is-blurred .cat.on {
-    color: var(--ink-2);
+    background: var(--accent-soft);
+    color: var(--on-accent);
 }
 
 body.is-blurred .cat.on .cat-n {
-    color: var(--ink-2);
-    border-color: var(--line);
+    background: var(--on-accent);
+    color: var(--accent-soft);
+    border-color: transparent;
 }
 
 .cat-dot {
