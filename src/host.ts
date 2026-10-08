@@ -516,6 +516,40 @@ export async function listenMenu(cb: (action: string) => void): Promise<() => vo
     }
 }
 
+// ------------------------------------------------------------------ 窗口焦点
+
+/**
+ * 窗口是否处于活跃（key）状态。返回退订函数。
+ *
+ * 手写的选中态要自己接这个：窗口失焦时 `.cat.on` 的强调色该降一级
+ * （见 views.css 的 `body.is-blurred` 那两条）。侧栏原先走系统绘制的选中底色，
+ * 那层降级是免费带的；换成自绘就没了。视频下载的侧栏用
+ * `NSWindow.didResignKeyNotification` 做同一件事。
+ *
+ * 先试 Tauri 的窗口焦点事件（语义与「窗口是不是 key」精确对应）；拿不到时退回
+ * DOM 的 focus / blur —— 浏览器预览里只有这一条路，Tauri 里 WKWebView 失焦也会
+ * 触发，只是语义粗一档（浏览器预览态本来就不是要验的东西）。
+ */
+export async function listenWindowActive(cb: (active: boolean) => void): Promise<() => void> {
+    if (IN_TAURI) {
+        try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            return await getCurrentWindow().onFocusChanged(({ payload: focused }) => cb(focused));
+        } catch (err) {
+            reportError(`订阅窗口焦点事件失败，退回 DOM 事件：${String(err)}`);
+        }
+    }
+    const onFocus = () => cb(true);
+    const onBlur = () => cb(false);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', onBlur);
+    cb(document.hasFocus());
+    return () => {
+        window.removeEventListener('focus', onFocus);
+        window.removeEventListener('blur', onBlur);
+    };
+}
+
 // ------------------------------------------------------------------ 版本与外链
 
 /** 当前版本号。来自 `tauri.conf.json` 的 `version`（见 `src-tauri/src/update.rs`）。

@@ -21,7 +21,7 @@ body {
        解锁页铺 --bg，应用壳由 .stage 铺 --panel，侧栏留空（见 views.css）。 */
     background: transparent;
     color: var(--ink);
-    font-size: 14px;
+    font-size: var(--fs-14);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
@@ -131,7 +131,7 @@ svg {
     top: 0;
     left: 0;
     right: 0;
-    height: var(--titlebar-h);
+    height: var(--layout-titlebar);
     z-index: 5;
 }
 
@@ -146,7 +146,7 @@ svg {
     background: var(--scroll);
     border: 3px solid transparent;
     background-clip: content-box;
-    border-radius: 8px;
+    border-radius: var(--r-8);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -163,48 +163,51 @@ svg {
 .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 14px;
+    gap: var(--sp-6);
+    margin-bottom: var(--sp-14);
 }
 
 .field > label,
 .pw-col > label {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: var(--fs-12);
+    font-weight: 500;
     color: var(--ink-2);
 }
 
 /* 必填标记。星号只是装饰，语义走字段上的 `aria-required` —— 读屏念一个
    「星号」说明不了什么，「必填」才是要传达的事。 */
 .req {
-    margin-left: 3px;
+    margin-left: var(--sp-2);
     color: var(--danger);
 }
 
 .inp {
     width: 100%;
-    height: 38px;
-    padding: 0 12px;
+    height: var(--ctl-38);
+    padding: 0 var(--sp-12);
     background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: var(--r-md);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-8);
     outline: none;
-    transition: 0.14s;
+    /* 表单档字号。原先没写，继承 body 的 14 —— 比同一个档位里的
+       `.btn`（13）与 `.search`（13）都大一档，同一行并排时看得出。 */
+    font-size: var(--fs-13);
+    transition: var(--mo-fast);
     appearance: none;
     -webkit-appearance: none;
 }
 
-/* 聚焦时底色提亮、边框转强调色。环不在这里画 —— 全应用共用 base.css 顶部
-   那条 `:focus-visible` 规则，就地再写一份只会让两边迟早对不上。 */
+/* 聚焦只把边框转强调色，底色不动（设计系统第八节，与另两个 app 同一取法）。
+   环不在这里画 —— 全应用共用 base.css 顶部那条 `:focus-visible` 规则，
+   就地再写一份只会让两边迟早对不上。 */
 .inp:focus {
-    background: var(--panel);
     border-color: var(--accent-line);
 }
 
 textarea.inp {
     height: auto;
     min-height: 84px;
-    padding: 10px 12px;
+    padding: var(--sp-10) var(--sp-12);
     resize: vertical;
     line-height: 1.6;
 }
@@ -219,25 +222,25 @@ select.inp {
 }
 
 .hint {
-    font-size: 11.5px;
+    font-size: var(--fs-12);
     color: var(--ink-3);
-    margin-top: 5px;
+    margin-top: var(--sp-4);
     line-height: 1.6;
 }
 
 /* ---------- 按钮 ---------- */
 
 .btn {
-    height: 38px;
-    padding: 0 16px;
-    border-radius: var(--r-md);
-    font-weight: 600;
-    font-size: 13px;
+    height: var(--ctl-38);
+    padding: 0 var(--sp-16);
+    border-radius: var(--r-8);
+    font-weight: 500;
+    font-size: var(--fs-13);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    transition: 0.14s;
+    gap: var(--sp-6);
+    transition: var(--mo-fast);
     white-space: nowrap;
 }
 
@@ -246,8 +249,7 @@ select.inp {
    白字压在本色上的对比度由 spike/contrast.mjs 守着。 */
 .btn-pri {
     background: var(--accent-fill);
-    color: #fff;
-    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.3);
+    color: var(--on-accent);
 }
 
 .btn-pri:hover {
@@ -281,13 +283,13 @@ select.inp {
 }
 
 .icon-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: var(--ctl-28);
+    height: var(--ctl-28);
+    border-radius: var(--r-6);
     display: grid;
     place-items: center;
     color: var(--ink-3);
-    transition: 0.14s;
+    transition: var(--mo-fast);
     flex: none;
 }
 
@@ -349,7 +351,7 @@ select.inp {
     backdrop-filter: blur(3px);
     display: grid;
     place-items: center;
-    padding: 24px;
+    padding: var(--sp-24);
     z-index: 50;
 }
 
@@ -358,7 +360,7 @@ select.inp {
     max-width: 470px;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 16px;
+    border-radius: var(--r-16);
     box-shadow: var(--shadow-modal);
     max-height: calc(100vh - 48px);
     display: flex;
@@ -366,7 +368,7 @@ select.inp {
 }
 
 .modal-head {
-    padding: 18px 22px;
+    padding: var(--sp-16) var(--sp-20);
     border-bottom: 1px solid var(--line);
     display: flex;
     align-items: center;
@@ -374,19 +376,19 @@ select.inp {
 }
 
 .modal-head h2 {
-    font-size: 15px;
-    font-weight: 650;
+    font-size: var(--fs-15);
+    font-weight: 600;
 }
 
 .modal-body {
-    padding: 20px 22px 6px;
+    padding: var(--sp-20) var(--sp-20) var(--sp-6);
     overflow-y: auto;
 }
 
 .modal-foot {
-    padding: 14px 22px 18px;
+    padding: var(--sp-14) var(--sp-20) var(--sp-16);
     display: flex;
-    gap: 8px;
+    gap: var(--sp-8);
     justify-content: flex-end;
     border-top: 1px solid var(--line);
 }
@@ -408,7 +410,7 @@ select.inp {
 
 .pw-tools {
     position: absolute;
-    right: 6px;
+    right: var(--sp-6);
     top: 50%;
     transform: translateY(-50%);
     display: flex;
@@ -419,7 +421,7 @@ select.inp {
     height: 3px;
     background: var(--panel-3);
     border-radius: 3px;
-    margin-top: 7px;
+    margin-top: var(--sp-6);
     overflow: hidden;
 }
 
@@ -428,7 +430,7 @@ select.inp {
     height: 100%;
     width: 0;
     border-radius: 3px;
-    transition: 0.28s;
+    transition: var(--mo-slow);
 }
 
 /* ---------- toast ---------- */
@@ -441,17 +443,17 @@ select.inp {
     opacity: 0;
     background: var(--toast-bg);
     color: var(--toast-ink);
-    font-size: 12.5px;
+    font-size: var(--fs-12);
     font-weight: 500;
-    padding: 9px 17px;
+    padding: var(--sp-8) var(--sp-16);
     border-radius: 22px;
     pointer-events: none;
-    transition: 0.22s;
+    transition: var(--mo-base);
     z-index: 80;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.24);
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: var(--sp-6);
 }
 
 .toast.on {

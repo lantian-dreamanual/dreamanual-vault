@@ -14,7 +14,7 @@
 <body>
 
 <!-- Overlay 标题栏下整条顶部用于拖动窗口。红绿灯按钮浮在左侧约 78×30 的区域，
-     所以三栏内容都从 --titlebar-h 之下开始。 -->
+     所以三栏内容都从 --layout-titlebar 之下开始。 -->
 <div class="drag-strip" data-tauri-drag-region></div>
 
 <!-- 品牌徽标里的那把钥匙。解锁页 / 建库页 / 侧栏三处共用这一份定义，改形状只改这里。
@@ -78,7 +78,7 @@
       <label for="lock-vault">当前库</label>
       <button class="vault-row" id="lock-vault" type="button" title="切换密码库">
         <span class="vault-row-path" id="lock-path">读取中…</span>
-        <svg class="vault-row-chev" width="13" height="13" viewBox="0 0 24 24" stroke-width="2.769" aria-hidden="true"><use href="#ic-chevrons-up-down"/></svg>
+        <svg class="vault-row-chev" width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-chevrons-up-down"/></svg>
       </button>
     </div>
 
@@ -192,10 +192,10 @@
           <span class="vault-name" id="vault-name">—</span>
         </button>
         <button class="icon-btn" id="btn-lock" type="button" title="锁定（⌘L）" aria-label="锁定">
-          <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-lock"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-lock"/></svg>
         </button>
         <button class="icon-btn" id="btn-settings" type="button" title="设置（⌘,）" aria-label="设置">
-          <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-settings"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-settings"/></svg>
         </button>
       </div>
     </div>
@@ -409,10 +409,10 @@
           <input class="inp" type="password" id="f-pw" placeholder="留空则不记录" autocomplete="off" spellcheck="false">
           <div class="pw-tools">
             <button class="icon-btn" id="f-pw-reveal" title="显示 / 隐藏">
-              <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-eye"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-eye"/></svg>
             </button>
             <button class="icon-btn" id="f-pw-gen" title="生成随机密码">
-              <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-refresh-cw"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-refresh-cw"/></svg>
             </button>
           </div>
         </div>

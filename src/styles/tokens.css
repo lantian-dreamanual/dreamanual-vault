@@ -15,8 +15,8 @@
 @import './tokens.generated.css';
 
 :root {
-    /* Overlay 标题栏高度，三栏都从这之下开始 */
-    --titlebar-h: 30px;
+    /* Overlay 标题栏高度（三栏都从这之下开始）已收进共享布局令牌 `--layout-titlebar`
+       —— 视频下载的侧栏顶部留白是同一个值、同一件事，见 tokens.generated.css。 */
 
     /* 214 → 240 → 248：底栏那行要同时放「⌄ 库名 + 两个图标」。默认库名
        「Dreamanual 密码管理」在 12px 下要 **118.4px**，240 只给得出 118px ——

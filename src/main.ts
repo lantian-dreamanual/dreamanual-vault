@@ -31,6 +31,7 @@ import {
     IN_TAURI,
     listenLock,
     listenMenu,
+    listenWindowActive,
     lockActivity,
     lockArm,
     lockDisarm,
@@ -952,6 +953,12 @@ void (async () => {
     void listenMenu((action) => {
         if (action === 'settings') shellToggleSettings();
         else if (action === 'lock') shellLock();
+    });
+
+    // 窗口失焦时把选中分类的强调色降一级（见 views.css 的 `body.is-blurred`）。
+    // 视频下载的侧栏选中态也是这么处理的，两端形态一致。
+    void listenWindowActive((active) => {
+        document.body.classList.toggle('is-blurred', !active);
     });
 
     if (flags.includes('accept')) {

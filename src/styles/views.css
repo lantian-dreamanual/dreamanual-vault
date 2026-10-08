@@ -10,7 +10,7 @@
     max-width: 392px;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 18px;
+    border-radius: var(--r-16);
     padding: 34px 32px 26px;
     box-shadow: var(--shadow-card);
 }
@@ -18,37 +18,37 @@
 .lock-mark {
     width: 48px;
     height: 48px;
-    border-radius: 14px;
+    border-radius: var(--r-12);
     background: linear-gradient(150deg, var(--accent), var(--accent-fill));
     display: grid;
     place-items: center;
     color: #fff;
-    margin-bottom: 18px;
+    margin-bottom: var(--sp-16);
 }
 
 /* 标题到第一个字段之间那 22px。原先由标题下的小字提供，两处小字都删掉之后
    归标题自己，解锁卡与建库卡共用同一个值。 */
 .lock-card h1 {
-    font-size: 19px;
+    font-size: var(--fs-20);
     font-weight: 650;
     letter-spacing: -0.01em;
-    margin-bottom: 22px;
+    margin-bottom: var(--sp-24);
 }
 
 .lock-msg {
-    font-size: 12.5px;
+    font-size: var(--fs-12);
     color: var(--danger);
     min-height: 18px;
-    margin-top: 2px;
+    margin-top: var(--sp-2);
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--sp-4);
 }
 
 .lock-actions {
-    margin-top: 18px;
+    margin-top: var(--sp-16);
     display: flex;
-    gap: 8px;
+    gap: var(--sp-8);
 }
 
 .lock-actions .btn {
@@ -60,14 +60,14 @@
    本来就只剩一个按钮，线更像是漏画的残迹。间距就够。 */
 .lock-foot {
     display: flex;
-    gap: 8px;
-    margin-top: 14px;
+    gap: var(--sp-8);
+    margin-top: var(--sp-14);
 }
 
 .lock-foot .btn {
     flex: 1;
-    height: 34px;
-    font-size: 12.5px;
+    height: var(--ctl-32);
+    font-size: var(--fs-12);
 }
 
 /* 解锁进度条。Argon2 按档位要 0.35–1.6 秒，没有反馈会被当成卡死。
@@ -80,7 +80,7 @@
     background: var(--panel-3);
     border-radius: 3px;
     overflow: hidden;
-    margin-top: 14px;
+    margin-top: var(--sp-14);
 }
 
 .bar.is-idle {
@@ -142,7 +142,7 @@
        侧栏必须能被压到窗口高度以内，否则底部的按钮跑到屏幕外。 */
     min-height: 0;
     overflow: hidden;
-    padding-top: var(--titlebar-h);
+    padding-top: var(--layout-titlebar);
 
     /* 材质上的文字色。侧栏是唯一「底色不来自令牌」的区域：底色由
        NSVisualEffectView 决定、跟着窗口背后的桌面走 —— 实测约 rgb(82,84,85)
@@ -164,15 +164,15 @@
 .brand {
     display: flex;
     align-items: center;
-    gap: 9px;
-    padding: 15px 14px 13px;
+    gap: var(--sp-8);
+    padding: var(--sp-16) var(--sp-14) var(--sp-12);
     border-bottom: 1px solid var(--line);
 }
 
 .brand-ic {
     width: 26px;
     height: 26px;
-    border-radius: 8px;
+    border-radius: var(--r-8);
     background: linear-gradient(150deg, var(--accent), var(--accent-fill));
     display: grid;
     place-items: center;
@@ -191,8 +191,8 @@
 }
 
 .brand b {
-    font-size: 13px;
-    font-weight: 650;
+    font-size: var(--fs-13);
+    font-weight: 600;
     letter-spacing: -0.01em;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -204,20 +204,20 @@
     /* 同上：不给 0 的话分类列表会把侧栏顶高，而不是自己滚 */
     min-height: 0;
     overflow-y: auto;
-    padding: 10px 8px;
-    transition: opacity 0.15s;
+    padding: var(--sp-10) var(--sp-8);
+    transition: opacity var(--mo-fast);
 }
 
 .cats-label {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 10.5px;
+    font-size: var(--fs-10);
     font-weight: 700;
     letter-spacing: 0.08em;
     /* 标签性质，用二级而不是三级。侧栏的底色是材质，三级在它上面算不到 4.5。 */
     color: var(--ink-2);
-    padding: 3px 4px 3px 8px;
+    padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-8);
 }
 
 /* 分类的新建入口。此前它只活在右键菜单里，而条目（分类里的内容）的创建
@@ -227,11 +227,11 @@
 .cats-add {
     width: 20px;
     height: 20px;
-    border-radius: 6px;
+    border-radius: var(--r-6);
     display: grid;
     place-items: center;
     color: var(--ink-3);
-    transition: 0.14s;
+    transition: var(--mo-fast);
     flex: none;
 }
 
@@ -243,14 +243,14 @@
 .cat {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 7px 9px;
-    border-radius: 8px;
-    font-size: 13px;
+    gap: var(--sp-8);
+    padding: var(--sp-8) var(--sp-8);
+    border-radius: var(--r-8);
+    font-size: var(--fs-13);
     color: var(--ink-2);
     cursor: pointer;
-    transition: 0.12s;
-    margin-bottom: 1px;
+    transition: var(--mo-fast);
+    margin-bottom: var(--sp-2);
     width: 100%;
     text-align: left;
     /* 拖拽改序时不要顺手选中分类名。这一行是可拖的，而拖动起点常常正落在文字上。 */
@@ -265,7 +265,7 @@
 .cat.on {
     background: var(--accent-soft);
     color: var(--accent-2);
-    font-weight: 650;
+    font-weight: 600;
 }
 
 .cat-name {
@@ -276,12 +276,12 @@
 }
 
 .cat-n {
-    font-size: 10.5px;
+    font-size: var(--fs-10);
     font-weight: 600;
     color: var(--ink-2);
     background: var(--panel);
     border: 1px solid var(--line);
-    padding: 1px 7px;
+    padding: var(--sp-2) var(--sp-6);
     border-radius: 20px;
     font-variant-numeric: tabular-nums;
     flex: none;
@@ -293,12 +293,27 @@
     border-color: var(--accent-line);
 }
 
+/* 窗口失焦时的选中态。视频下载的 `SelectState.selectedInactive` 是同一档：
+   底色降到 --panel-3、字色降到 --ink-2，字重不变（那边也只换色）。
+   没有这一层的话，切到别的应用之后侧栏里那个分类仍然亮着强调色，
+   看起来像还握着焦点 —— 它的底色本来由系统绘制、自带这层降级，换成自绘就没了。
+   class 由 main.ts 的 listenWindowActive 切。 */
+body.is-blurred .cat.on {
+    background: var(--panel-3);
+    color: var(--ink-2);
+}
+
+body.is-blurred .cat.on .cat-n {
+    color: var(--ink-2);
+    border-color: var(--line);
+}
+
 .cat-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
     flex: none;
-    margin-left: 3px;
+    margin-left: var(--sp-2);
 }
 
 /* 分类行的拖拽态。拖动中那一行就停在松手后的位置上，所以只说明「正在拖」：
@@ -319,7 +334,7 @@
     flex-wrap: wrap;
     /* 8px：11 格（自动 + 10 色）正好在面板可用宽里排成一行。
        间距再大一点就会折成 9 + 2，第二行只有两格，看着像漏了东西。 */
-    gap: 8px;
+    gap: var(--sp-8);
     /* 上下留白交给 `.field` 的 gap —— 色板现在长在字段里，自带 padding 会让
        「分类名」与「颜色」两行的间距比别处大一截。 */
     padding: 0;
@@ -336,7 +351,7 @@
     border-radius: 50%;
     background: var(--sw);
     box-shadow: 0 0 0 1px var(--line);
-    transition: 0.12s;
+    transition: var(--mo-fast);
 }
 
 .palette-sw:hover {
@@ -368,17 +383,17 @@
 
 /* 底栏只放「现在开的是哪个库」与两个全局动作。 */
 .sider-foot {
-    padding: 8px 10px 10px;
+    padding: var(--sp-8) var(--sp-16) var(--sp-10);
     border-top: 1px solid var(--line);
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--sp-4);
 }
 
 .sider-foot-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-4);
 }
 
 /* 库切换。整条是按钮，点开是一个菜单（打开其他库 / 在访达中显示 / 用默认位置）。
@@ -388,19 +403,19 @@
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 7px;
-    height: 30px;
-    padding: 0 7px;
-    border-radius: 7px;
-    font-size: 12px;
+    gap: var(--sp-6);
+    height: var(--ctl-28);
+    padding: 0 var(--sp-6);
+    border-radius: var(--r-6);
+    font-size: var(--fs-12);
     color: var(--ink-2);
-    transition: 0.14s;
+    transition: var(--mo-fast);
 }
 
 .vault-switch > svg {
     flex: none;
     color: var(--ink-3);
-    transition: 0.14s;
+    transition: var(--mo-fast);
 }
 
 .vault-switch:hover {
@@ -418,22 +433,12 @@
     white-space: nowrap;
 }
 
-/* 图标按钮。底栏这两个（锁定 / 设置）与列表头的「新建条目」共用一套：
-   中性配色、同尺寸，靠位置而不是靠色块区分主次。 */
+/* 图标按钮（底栏的锁定 / 设置、列表头的「新建条目」）。尺寸、圆角与布局走核心层
+   base.css 的那一条（紧凑档 28 / --r-6），这里只覆盖文字色：侧栏底下是
+   NSVisualEffectView 材质，比 --panel 亮，核心层的 --ink-3 在它上面只到
+   非文本 3:1 的下限，提亮一档取 --ink-2。 */
 .icon-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 7px;
-    display: grid;
-    place-items: center;
     color: var(--ink-2);
-    transition: 0.14s;
-    flex: none;
-}
-
-.icon-btn:hover {
-    background: var(--panel-3);
-    color: var(--ink);
 }
 
 /* 设置面板开着时，那个齿轮同时是「返回」—— 用一个持续的点亮态说明这件事，
@@ -507,14 +512,14 @@
     /* grid 列项默认 min-height:auto，会被长列表撑开而非收缩 —— 顶栏出界、
        `.list` 滚不动。放开后内部 flex 才能把高度约束传给 `.list`。 */
     min-height: 0;
-    padding-top: var(--titlebar-h);
+    padding-top: var(--layout-titlebar);
 }
 
 .search-box {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 12px 10px;
+    gap: var(--sp-8);
+    padding: var(--sp-12) var(--sp-12) var(--sp-10);
 }
 
 /* 输入框与它内嵌的两个图标（放大镜、清空）单独一层。图标要跟着**输入框**定位：
@@ -537,10 +542,10 @@
 /* 列表头的「新建条目」。作用范围就是这一列，所以入口贴在这一列上；
    尺寸跟着搜索框走，不再是底栏那个占满宽度的实心主按钮。 */
 .search-box .icon-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: var(--r-md);
-    border: 1px solid var(--line);
+    width: var(--ctl-38);
+    height: var(--ctl-38);
+    border-radius: var(--r-8);
+    border: 1px solid var(--line-2);
     background: var(--panel-2);
 }
 
@@ -551,21 +556,20 @@
 
 .search {
     width: 100%;
-    height: 36px;
+    height: var(--ctl-38);
     padding: 0 32px 0 33px;
     background: var(--panel-2);
-    border: 1px solid var(--line);
-    border-radius: var(--r-md);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-8);
     outline: none;
-    font-size: 13px;
-    transition: 0.14s;
+    font-size: var(--fs-13);
+    transition: var(--mo-fast);
     appearance: none;
     -webkit-appearance: none;
 }
 
-/* 与 `.inp` 同：聚焦只改底色与边框，环走 base.css 那条通用规则。 */
+/* 与 `.inp` 同：聚焦只改边框，底色不动；环走 base.css 那条通用规则。 */
 .search:focus {
-    background: var(--panel);
     border-color: var(--accent-line);
 }
 
@@ -591,8 +595,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 2px 14px 8px;
-    font-size: 11px;
+    padding: var(--sp-2) var(--sp-14) var(--sp-8);
+    font-size: var(--fs-11);
     color: var(--ink-3);
     font-weight: 600;
     letter-spacing: 0.03em;
@@ -604,18 +608,18 @@
 .list {
     flex: 1;
     overflow-y: auto;
-    padding: 4px 8px 12px;
+    padding: var(--sp-4) var(--sp-8) var(--sp-12);
 }
 
 .item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 9px 10px;
-    border-radius: 10px;
+    gap: var(--sp-10);
+    padding: var(--sp-8) var(--sp-10);
+    border-radius: var(--r-10);
     cursor: pointer;
-    transition: 0.12s;
-    margin-bottom: 2px;
+    transition: var(--mo-fast);
+    margin-bottom: var(--sp-2);
     border: 1px solid transparent;
 }
 
@@ -629,13 +633,13 @@
 }
 
 .ava {
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
+    width: var(--ic-32);
+    height: var(--ic-32);
+    border-radius: var(--r-8);
     display: grid;
     place-items: center;
     flex: none;
-    font-size: 12.5px;
+    font-size: var(--fs-12);
     font-weight: 700;
     background: var(--panel-3);
     color: var(--ink-2);
@@ -655,7 +659,7 @@
 }
 
 .item-title {
-    font-size: 13px;
+    font-size: var(--fs-13);
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -663,12 +667,12 @@
 }
 
 .item-sub {
-    font-size: 11.5px;
+    font-size: var(--fs-12);
     color: var(--ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    margin-top: 1px;
+    margin-top: var(--sp-2);
 }
 
 mark {
@@ -679,10 +683,10 @@ mark {
 }
 
 .empty {
-    padding: 52px 24px;
+    padding: 52px var(--sp-24);
     text-align: center;
     color: var(--ink-3);
-    font-size: 12.5px;
+    font-size: var(--fs-12);
     line-height: 1.9;
 }
 
@@ -698,7 +702,7 @@ mark {
        整列不再自己滚 —— 之前是整列滚，头部跟着字段一起滚出视口。 */
     overflow: hidden;
     background: var(--panel);
-    padding-top: var(--titlebar-h);
+    padding-top: var(--layout-titlebar);
 }
 
 .detail-empty {
@@ -706,26 +710,26 @@ mark {
     display: grid;
     place-items: center;
     color: var(--ink-3);
-    font-size: 12.5px;
+    font-size: var(--fs-12);
     text-align: center;
     line-height: 2;
 }
 
 .detail-head {
-    padding: 22px 26px 18px;
+    padding: var(--sp-20) var(--sp-24) var(--sp-16);
     border-bottom: 1px solid var(--line);
     display: flex;
-    gap: 14px;
+    gap: var(--sp-14);
     align-items: flex-start;
 }
 
 .detail-ava {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
+    width: var(--ic-44);
+    height: var(--ic-44);
+    border-radius: var(--r-12);
     display: grid;
     place-items: center;
-    font-size: 17px;
+    font-size: var(--fs-17);
     font-weight: 700;
     background: var(--accent-soft);
     color: var(--accent-2);
@@ -734,7 +738,7 @@ mark {
 }
 
 .detail-title {
-    font-size: 17px;
+    font-size: var(--fs-17);
     font-weight: 650;
     letter-spacing: -0.015em;
     word-break: break-word;
@@ -742,15 +746,15 @@ mark {
 
 .detail-tags {
     display: flex;
-    gap: 6px;
-    margin-top: 7px;
+    gap: var(--sp-6);
+    margin-top: var(--sp-6);
     flex-wrap: wrap;
 }
 
 .tag {
-    font-size: 11px;
+    font-size: var(--fs-11);
     font-weight: 600;
-    padding: 2.5px 9px;
+    padding: var(--sp-2) var(--sp-8);
     border-radius: 20px;
     background: var(--panel-3);
     color: var(--ink-2);
@@ -763,7 +767,7 @@ mark {
 
 .detail-acts {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-4);
     margin-left: auto;
     flex: none;
 }
@@ -774,15 +778,15 @@ mark {
        与 `.list`（592 行注释）同一坑。放开后 overflow-y 才生效。 */
     min-height: 0;
     overflow-y: auto;
-    padding: 8px 26px 32px;
+    padding: var(--sp-8) var(--sp-24) 32px;
 }
 
 .row {
-    padding: 14px 0;
+    padding: var(--sp-14) 0;
     border-bottom: 1px solid var(--line);
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--sp-12);
 }
 
 .row:last-child {
@@ -793,13 +797,13 @@ mark {
    焦点环走 base.css 那条通用规则（时机取 `:focus-visible`）：用鼠标点一下行是看
    内容，弹出一个环只会显得碍事。这里的 `border-radius` 留着，outline 要跟着它转。 */
 .row.is-copyable {
-    border-radius: 8px;
+    border-radius: var(--r-8);
 }
 
 .row-k {
     width: 76px;
     flex: none;
-    font-size: 12px;
+    font-size: var(--fs-12);
     font-weight: 600;
     color: var(--ink-3);
 }
@@ -807,7 +811,7 @@ mark {
 .row-v {
     flex: 1;
     min-width: 0;
-    font-size: 13.5px;
+    font-size: var(--fs-13);
     word-break: break-all;
     font-family: ui-monospace, 'SF Mono', Menlo, monospace;
 }
@@ -829,12 +833,12 @@ mark {
 
 .row-acts {
     display: flex;
-    gap: 2px;
+    gap: var(--sp-2);
     flex: none;
 }
 
 .block {
-    padding: 14px 0;
+    padding: var(--sp-14) 0;
     border-bottom: 1px solid var(--line);
 }
 
@@ -843,14 +847,14 @@ mark {
 }
 
 .block-k {
-    font-size: 12px;
+    font-size: var(--fs-12);
     font-weight: 600;
     color: var(--ink-3);
-    margin-bottom: 7px;
+    margin-bottom: var(--sp-6);
 }
 
 .block-v {
-    font-size: 13.5px;
+    font-size: var(--fs-13);
     white-space: pre-wrap;
     word-break: break-word;
     color: var(--ink-2);
@@ -860,7 +864,7 @@ mark {
 /* ---------- 设置面板 ---------- */
 
 .settings-body {
-    padding: calc(var(--titlebar-h) + 22px) 30px 40px;
+    padding: calc(var(--layout-titlebar) + var(--sp-20)) 30px 40px;
     max-width: 720px;
     /* 面板铺满整窗之后，内容块在窗口里**居中**（块内仍左对齐）。
        不加这条的话它贴着左边开始，而那 248px 正是侧栏的宽度 ——
@@ -869,7 +873,7 @@ mark {
 }
 
 .settings-head {
-    margin-bottom: 24px;
+    margin-bottom: var(--sp-24);
 }
 
 /* 标题与出口同一行。出口做成图标按钮而不是文字按钮，为的是不把这一行加高 ——
@@ -878,50 +882,50 @@ mark {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--sp-12);
 }
 
 .settings-head h1 {
-    font-size: 19px;
+    font-size: var(--fs-20);
     font-weight: 650;
     letter-spacing: -0.015em;
 }
 
 .settings-sub {
-    font-size: 12.5px;
+    font-size: var(--fs-12);
     color: var(--ink-3);
-    margin-top: 5px;
+    margin-top: var(--sp-4);
 }
 
 .settings-group {
-    margin-bottom: 26px;
+    margin-bottom: var(--sp-24);
 }
 
 .settings-group > h2 {
-    font-size: 11px;
+    font-size: var(--fs-11);
     font-weight: 700;
     letter-spacing: 0.08em;
     color: var(--ink-3);
-    margin-bottom: 8px;
+    margin-bottom: var(--sp-8);
 }
 
 .srow {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 12px 14px;
+    gap: var(--sp-16);
+    padding: var(--sp-12) var(--sp-14);
     border: 1px solid var(--line);
     border-bottom: none;
     background: var(--panel);
 }
 
 .srow:first-of-type {
-    border-radius: var(--r-md) var(--r-md) 0 0;
+    border-radius: var(--r-8) var(--r-8) 0 0;
 }
 
 .srow:last-of-type {
     border-bottom: 1px solid var(--line);
-    border-radius: 0 0 var(--r-md) var(--r-md);
+    border-radius: 0 0 var(--r-8) var(--r-8);
 }
 
 .srow-k {
@@ -929,16 +933,16 @@ mark {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-2);
 }
 
 .srow-k b {
-    font-size: 13px;
+    font-size: var(--fs-13);
     font-weight: 600;
 }
 
 .srow-k span {
-    font-size: 11.5px;
+    font-size: var(--fs-12);
     color: var(--ink-3);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -952,14 +956,14 @@ mark {
 }
 
 select.srow-ctl {
-    height: 32px;
-    font-size: 12.5px;
+    height: var(--ctl-32);
+    font-size: var(--fs-12);
 }
 
 .srow-num {
     width: 84px;
     min-width: 0;
-    height: 32px;
+    height: var(--ctl-32);
     text-align: center;
 }
 
@@ -973,9 +977,9 @@ select.srow-ctl {
 .srow-hit {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--sp-16);
     width: 100%;
-    padding: 12px 14px;
+    padding: var(--sp-12) var(--sp-14);
     background: none;
     border: none;
     font: inherit;
@@ -985,7 +989,7 @@ select.srow-ctl {
     /* 悬停底色要跟着父级 `.srow` 的圆角走。父级只在该行是 last-of-type 时
        才带下圆角，直接写死 8px 会在别的分组里溢出圆角外。 */
     border-radius: inherit;
-    transition: background 0.12s;
+    transition: background var(--mo-fast);
 }
 
 /* 「请我喝杯咖啡」：咖啡图标与文字常态就是强调色 —— 设置页里只有这一个
@@ -995,7 +999,7 @@ select.srow-ctl {
 .srow-lead {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-6);
     color: var(--accent-2);
 }
 
@@ -1022,7 +1026,7 @@ select.srow-ctl {
 /* 只读的值（「当前版本」那一格）。等宽数字，版本号从 v1.0.0 变成 v1.10.0 时那列不会左右跳 */
 .srow-val {
     flex: none;
-    font-size: 12.5px;
+    font-size: var(--fs-12);
     color: var(--ink-2);
     font-variant-numeric: tabular-nums;
 }
@@ -1038,9 +1042,9 @@ select.srow-ctl {
 
 .pill {
     flex: none;
-    font-size: 11px;
+    font-size: var(--fs-11);
     font-weight: 600;
-    padding: 3px 10px;
+    padding: var(--sp-2) var(--sp-10);
     border-radius: 20px;
     background: var(--panel-3);
     color: var(--ink-2);
@@ -1088,7 +1092,7 @@ select.srow-ctl {
     inset: 0;
     border-radius: 20px;
     background: var(--line-2);
-    transition: 0.18s;
+    transition: var(--mo-fast);
     pointer-events: none;
 }
 
@@ -1102,7 +1106,7 @@ select.srow-ctl {
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    transition: 0.18s;
+    transition: var(--mo-fast);
 }
 
 /* 开关选中态的底取实心档，与主按钮同色。
@@ -1140,9 +1144,9 @@ select.srow-ctl {
     position: fixed;
     z-index: 60;
     min-width: 152px;
-    padding: 5px;
+    padding: var(--sp-4);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-10);
     background: var(--panel);
     box-shadow: var(--shadow-modal);
 }
@@ -1150,13 +1154,13 @@ select.srow-ctl {
 .ctxmenu button {
     display: block;
     width: 100%;
-    padding: 6px 10px;
+    padding: var(--sp-6) var(--sp-10);
     border: 0;
-    border-radius: 7px;
+    border-radius: var(--r-6);
     background: transparent;
     color: var(--ink);
     font: inherit;
-    font-size: 13px;
+    font-size: var(--fs-13);
     text-align: left;
     cursor: default;
 }
@@ -1187,12 +1191,12 @@ select.srow-ctl {
 .vault-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--sp-10);
     width: 100%;
     text-align: left;
-    padding: 9px 11px;
+    padding: var(--sp-8) var(--sp-12);
     border: 1px solid var(--line);
-    border-radius: var(--r-md);
+    border-radius: var(--r-8);
     background: var(--panel-2);
     color: var(--ink-2);
     font: inherit;
@@ -1206,7 +1210,7 @@ select.srow-ctl {
 .vault-row-path {
     flex: 1;
     min-width: 0;
-    font-size: 11.5px;
+    font-size: var(--fs-12);
     line-height: 1.55;
     overflow-wrap: anywhere;
 }
@@ -1222,9 +1226,9 @@ select.srow-ctl {
 .btn-xs {
     flex: none;
     width: auto;
-    height: 28px;
-    padding: 0 11px;
-    font-size: 11.5px;
+    height: var(--ctl-28);
+    padding: 0 var(--sp-10);
+    font-size: var(--fs-12);
     font-weight: 500;
 }
 
@@ -1235,7 +1239,7 @@ select.srow-ctl {
  * 并排省掉一整套「标签 + 输入框 + 字段间距」。 */
 .pw-grid {
     display: flex;
-    gap: 8px;
+    gap: var(--sp-8);
 }
 
 /* min-width: 0：flex 列项的默认最小宽度是内容宽，密码框里的 placeholder
@@ -1245,7 +1249,7 @@ select.srow-ctl {
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-4);
 }
 
 /* ---------- 建库卡片的保存位置 ---------- */
@@ -1256,16 +1260,16 @@ select.srow-ctl {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 10px;
+    padding: var(--sp-6) var(--sp-10);
     border: 1px solid var(--line);
-    border-radius: var(--r-md);
+    border-radius: var(--r-8);
     background: var(--panel);
 }
 
 .loc-text {
     flex: 1;
     min-width: 0;
-    font-size: 11.5px;
+    font-size: var(--fs-12);
     line-height: 1.5;
     color: var(--ink-2);
     word-break: break-all;
@@ -1277,7 +1281,7 @@ select.srow-ctl {
     display: flex;
     flex: none;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-8);
 }
 
 /* srow-ctl 的 132px 是给单个按钮撑宽度用的，两个叠在一起会把左边的路径挤没 */
@@ -1293,10 +1297,10 @@ select.srow-ctl {
 /* ---------- 侧栏底部的保存状态 ---------- */
 
 .save-state {
-    font-size: 11.5px;
+    font-size: var(--fs-12);
     color: var(--ink-3);
     min-height: 15px;
-    padding: 0 7px;
+    padding: 0 var(--sp-6);
 }
 
 .save-state.is-error {
@@ -1317,16 +1321,16 @@ select.srow-ctl {
 }
 
 #lock-create .lock-mark {
-    margin-bottom: 10px;
+    margin-bottom: var(--sp-10);
 }
 
 #lock-create .field {
-    gap: 4px;
-    margin-bottom: 10px;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-10);
 }
 
 #lock-create .hint {
-    margin-top: 3px;
+    margin-top: var(--sp-2);
 }
 
 /* 强度条紧贴上面的密码框。默认的 margin-top: 7px 叠在 .field 的 gap 上，
