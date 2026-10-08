@@ -44,7 +44,7 @@ export function highlight(text: string, query: string): string {
 
 let toastTimer: number | undefined;
 
-export function toast(message: string, ms = 1600): void {
+export function toast(message: string, ms = 2000): void {
     const node = $('#toast');
     if (!node) return;
     node.textContent = message;

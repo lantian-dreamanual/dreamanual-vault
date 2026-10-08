@@ -437,7 +437,7 @@ select.inp {
 
 .toast {
     position: fixed;
-    bottom: 26px;
+    bottom: var(--sp-24);
     left: 50%;
     transform: translate(-50%, 18px);
     opacity: 0;
@@ -446,11 +446,11 @@ select.inp {
     font-size: var(--fs-12);
     font-weight: 500;
     padding: var(--sp-8) var(--sp-16);
-    border-radius: 22px;
+    border-radius: var(--r-10);
     pointer-events: none;
     transition: var(--mo-base);
     z-index: 80;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.24);
+    box-shadow: var(--shadow-card);
     display: flex;
     align-items: center;
     gap: var(--sp-6);
