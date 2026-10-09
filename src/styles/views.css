@@ -1079,26 +1079,26 @@ select.srow-ctl {
     font-weight: 600;
     padding: var(--sp-2) var(--sp-10);
     border-radius: 20px;
-    background: var(--panel-3);
+    /* 2026-10-09 徽章改版：底统一 panel-2（与卡片同底），line-2 发丝描边分层 ——
+       原 -soft 底压深色面板读作凹陷、中性 panel-3 底与卡片无层次。 */
+    background: var(--panel-2);
+    box-shadow: inset 0 0 0 0.5px var(--line-2);
     color: var(--ink-2);
 }
 
 .pill.ok {
-    background: var(--accent-soft);
     color: var(--accent-2);
 }
 
 .pill.warn {
-    background: var(--warn-soft);
-    color: var(--warn-ink);
+    color: var(--warn-ink-strong);
 }
 
 /* 备份失败 / 超过 24 小时未成功。与 warn 分开是有意的：
    warn 是「还没配好」，bad 是「配好了但没在工作」——
    后者才是要人去查 Synology Drive 客户端的那种状态，两者不该长得一样。 */
 .pill.bad {
-    background: var(--danger-soft);
-    color: var(--danger-ink);
+    color: var(--danger-ink-strong);
 }
 
 /* 开关 */
