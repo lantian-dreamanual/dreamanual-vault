@@ -17,6 +17,7 @@ import './styles/base.css';
 import './styles/views.css';
 
 import { isComposing, must, toast } from './ui/dom';
+import { icons } from './ui/icons';
 import { clockTime, vaultDisplayName } from './ui/format';
 import { confirmDialog } from './ui/confirm';
 import { contextMenu, type MenuItem } from './ui/menu';
@@ -452,14 +453,16 @@ store.subscribe((status) => {
     clearSaveHideTimer();
     saveStateEl.className = 'save-state';
 
+    // 皮与 Toast 同款（views.css），语义同 Toast 那三枚图标：保存中 info /
+    // 已保存 ok / 失败 err —— 文字色恒为 --toast-ink，语义靠形状承载。
     switch (status.saveState) {
         case 'saving':
-            saveStateEl.textContent = '保存中…';
-            saveStateEl.classList.add('is-busy', 'is-on');
+            saveStateEl.innerHTML = `${icons.info()}<span>保存中…</span>`;
+            saveStateEl.classList.add('is-on');
             break;
         case 'error':
-            saveStateEl.textContent = '保存失败，改动暂存在内存里';
-            saveStateEl.classList.add('is-error', 'is-on');
+            saveStateEl.innerHTML = `${icons.err()}<span>保存失败，改动暂存在内存里</span>`;
+            saveStateEl.classList.add('is-on');
             if (status.error && status.error !== lastSaveError) {
                 lastSaveError = status.error;
                 toast(`保存失败：${status.error}`, 'err', 3200);
@@ -467,7 +470,8 @@ store.subscribe((status) => {
             break;
         case 'saved': {
             lastSaveError = null;
-            saveStateEl.textContent = status.savedAt ? `已保存 ${clockTime(status.savedAt)}` : '已保存';
+            const savedText = status.savedAt ? `已保存 ${clockTime(status.savedAt)}` : '已保存';
+            saveStateEl.innerHTML = `${icons.ok()}<span>${savedText}</span>`;
             saveStateEl.classList.add('is-on');
             // 「已保存」是默认态，常挂着就是噪声：露一下就走。
             saveHideTimer = window.setTimeout(() => {

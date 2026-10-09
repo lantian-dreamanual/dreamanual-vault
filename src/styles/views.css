@@ -1336,23 +1336,32 @@ select.srow-ctl {
 
    改成气泡浮在分隔线**之上**：不参与布局，只在保存中 / 保存失败 / 刚保存完
    时出现，其余时刻完全收起（opacity + visibility，不可点击）。出现时机由
-   main.ts 切 .is-on。 */
+   main.ts 切 .is-on。
+
+   2026-10-09 换皮：原先 panel 深底 + 描边 + r6 是单独起的模样，与同窗的
+   Toast（浅实色底 + 深字 + r10 + 语义图标）是两种 tooltip。统一取 Toast 的
+   皮 —— toast-bg / toast-ink / r10 / 500 字重 / shadow-toast，语义也交給
+   Toast 那套图标（保存中 info / 已保存 ok / 失败 err），文字色不再随状态
+   变（语义靠形状，与 Toast 同一条理由：族色压浅实色底不到 3:1）。锚位与
+   出没时机不动 —— 那是同日上午拍板的位置方案，这次只统一皮。宽度改内容
+   自适应（原先通栏描边气泡），紧凑胶囊与 Toast 形态一致。 */
 
 .save-state {
     position: absolute;
     left: var(--sp-16);
-    right: var(--sp-16);
     /* 百分比参照 .sider-foot 的 padding box，100% 只到 border-top 的下缘，
        再加 1px 跨过分隔线本身，气泡才落在线的上方。 */
     bottom: calc(100% + var(--sp-8) + 1px);
     z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-8);
     font-size: var(--fs-12);
-    line-height: 1.4;
-    color: var(--ink-2);
-    background: var(--panel);
-    border: 1px solid var(--line-2);
-    border-radius: var(--r-6);
-    padding: var(--sp-4) var(--sp-8);
+    font-weight: 500;
+    color: var(--toast-ink);
+    background: var(--toast-bg);
+    border-radius: var(--r-10);
+    padding: var(--sp-8) var(--sp-16);
     box-shadow: var(--shadow-toast);
     opacity: 0;
     visibility: hidden;
@@ -1361,18 +1370,16 @@ select.srow-ctl {
     pointer-events: none;
 }
 
+/* 图标与文字同取 --toast-ink，且不被压扁 —— 与 base.css 的 .toast svg 同一条。 */
+.save-state svg {
+    flex: none;
+    color: var(--toast-ink);
+}
+
 .save-state.is-on {
     opacity: 1;
     visibility: visible;
     transform: none;
-}
-
-.save-state.is-error {
-    color: var(--danger);
-}
-
-.save-state.is-busy {
-    color: var(--accent);
 }
 
 /* 建库卡片字段最多，默认的 1080×720 视口下会长过窗口。只给这一档收紧
