@@ -198,10 +198,13 @@ svg {
 }
 
 /* 聚焦只把边框转强调色，底色不动（设计系统第八节，与另两个 app 同一取法）。
+   取浅档 --accent-2 而不是 --accent-line：line 是 800 深档，压 panel-2/3 底
+   辨识度不够（2026-10-09 用户反馈）；accent-2 与 base.css 的键盘焦点环同色，
+   「聚焦长什么样」全应用只有一个答案。
    环不在这里画 —— 全应用共用 base.css 顶部那条 `:focus-visible` 规则，
    就地再写一份只会让两边迟早对不上。 */
 .inp:focus {
-    border-color: var(--accent-line);
+    border-color: var(--accent-2);
 }
 
 /* 卡片（.modal / .lock-card / .srow，均已抬到 panel-2）里的输入件跟着抬一档
