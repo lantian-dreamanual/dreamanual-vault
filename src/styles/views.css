@@ -1345,9 +1345,15 @@ select.srow-ctl {
    保存失败时仍会弹一条带详情的 Toast —— 图标是环境反馈，失败原因只有
    那一次知道，分工与气泡时代一致。 */
 
+/* 占位壳与 .icon-btn 同规格（28×28 网格、图形居中）—— 行距 4px 落在盒子上，
+   裸图标（14px）会和旁边 28px 按钮里的图形差出 7px 内边，三个图标的
+   视觉间距就不齐了；同壳之后两侧各让 7px，间距三段一致。 */
 .save-flag {
     flex: none;
-    display: inline-flex;
+    width: var(--ctl-28);
+    height: var(--ctl-28);
+    display: grid;
+    place-items: center;
     color: var(--ink-3);
     opacity: 0;
     transition: var(--mo-fast);
