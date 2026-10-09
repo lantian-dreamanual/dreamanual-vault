@@ -135,13 +135,16 @@
 /* ---------- 侧栏 ---------- */
 
 .sider {
-    /* 侧栏固定底色（2026-10-09 用户拍板，去透壁纸质感）：原先 transparent +
-       Tauri 插在 WKWebView 下面的 NSVisualEffectView（material = sidebar），
-       底色跟着壁纸与窗口焦点浮动（实测 rgb 82,84,85 ±6、失焦整条压暗）——
-       四端并排看侧栏永远对不齐。现在铺 --bg（neutral-950），比主内容区
-       （--panel，neutral-900）深一档，层级与 macOS「侧栏更深」惯例一致。
-       网页自此整窗不透明，底下的材质视图被完全盖住，视觉上不再参与。 */
-    background: var(--bg);
+    /* 侧栏固定底色（2026-10-09 两段沿革，均用户拍板）：先去透壁纸材质 ——
+       原先 transparent + Tauri 插在 WKWebView 下面的 NSVisualEffectView
+       （material = sidebar），底色跟着壁纸与窗口焦点浮动（实测 rgb 82,84,85 ±6、
+       失焦整条压暗），四端并排看侧栏永远对不齐；当时铺 --bg 比主区深一档。
+       复看后改口径：侧栏要比主内容区**浅**（Finder 式层级），落 --panel-2
+       （neutral-800），比主区（--panel，neutral-900）亮一档。网页自此整窗
+       不透明，底下的材质视图被完全盖住，视觉上不再参与。 */
+    background: var(--panel-2);
+    /* 侧栏提亮后 --line 与底同色，这条边线画没画都一样：侧栏与主区的分界
+       靠 800 与 900 档的亮度台阶本身承担，留着只当保险。 */
     border-right: 1px solid var(--line);
     display: flex;
     flex-direction: column;
@@ -152,10 +155,8 @@
     overflow: hidden;
     padding-top: var(--layout-titlebar);
 
-    /* 材质退役后侧栏底色回到令牌（--bg），文字色不再需要局部重定义：
-       原先按实测材质底 rgb(82,84,85) 单独提亮到 #e5e5e5，现在全局 --ink-2
-       压在 --bg 上 15.5:1，比材质时代更宽松。材质底不是令牌、contrast.mjs
-       算不到它的那段历史（scripts/a3-probe.sh）随之作废。 */
+    /* 文字色用全局档：--ink-2 压 --panel-2 约 10.3:1。材质时代的 .sider
+       作用域覆盖（#e5e5e5）已随第一次铺底色删除，沿革见 spike/contrast.mjs。 */
 }
 
 .brand {
@@ -163,7 +164,8 @@
     align-items: center;
     gap: var(--sp-8);
     padding: var(--sp-16) var(--sp-14) var(--sp-12);
-    border-bottom: 1px solid var(--line);
+    /* 侧栏提亮后 --line 与底同色，栏内分隔线一律取深一档的 --line-2。 */
+    border-bottom: 1px solid var(--line-2);
 }
 
 .brand-ic {
@@ -212,7 +214,8 @@
     font-size: var(--fs-10);
     font-weight: 700;
     letter-spacing: 0.08em;
-    /* 标签性质，用二级而不是三级。侧栏的底色是材质，三级在它上面算不到 4.5。 */
+    /* 标签性质，用二级而不是三级。侧栏提亮到 --panel-2 后三级虽过 4.5，
+       但 10px 全大写加粗小字留一档余量更稳。 */
     color: var(--ink-2);
     padding: var(--sp-2) var(--sp-4) 0 var(--sp-8);
     /* 与首个分类行拉开一档：标签只有 10px 高，紧贴着 32px 的行会显得挤成一团。 */
@@ -395,8 +398,9 @@ body.is-blurred .cat.on .cat-n {
 
 /* 底栏只放「现在开的是哪个库」与两个全局动作。 */
 .sider-foot {
+    /* 侧栏提亮后 --line 与底同色，栏内分隔线一律取深一档的 --line-2。 */
     padding: var(--sp-8) var(--sp-16) var(--sp-10);
-    border-top: 1px solid var(--line);
+    border-top: 1px solid var(--line-2);
     display: flex;
     flex-direction: column;
     gap: var(--sp-4);
@@ -448,9 +452,8 @@ body.is-blurred .cat.on .cat-n {
 }
 
 /* 图标按钮（底栏的锁定 / 设置、列表头的「新建条目」）。尺寸、圆角与布局走核心层
-   base.css 的那一条（紧凑档 28 / --r-6），这里只覆盖文字色：侧栏底下是
-   NSVisualEffectView 材质，比 --panel 亮，核心层的 --ink-3 在它上面只到
-   非文本 3:1 的下限，提亮一档取 --ink-2。 */
+   base.css 的那一条（紧凑档 28 / --r-6），这里只覆盖文字色：取 --ink-2 与
+   .vault-switch 的常态文字同级（材质时代为此提亮过一档，侧栏落令牌后保持）。 */
 .icon-btn {
     color: var(--ink-2);
 }

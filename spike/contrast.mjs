@@ -11,15 +11,17 @@
  *   large  3.0:1  大字（≥24px，或 ≥18.66px 且 ≥700 字重）
  *   ui     3.0:1  承载信息的图形：强度条填充、开关滑块
  *
- * 分类圆点**不在这三档里**，它另有一条更严的断言（4.0:1）—— 圆点压在侧栏毛玻璃上，
- * 而那个底色不是令牌，取不到就进不了 PAIRS 表。逐格读数见下面的「分类圆点」一节。
+ * 分类圆点**不在这三档里**，它另有一条更严的断言（4.0:1）—— 圆点只有 6px、
+ * 又是唯一区分分类的线索，比非文本的 3:1 再收一档。逐格读数见下面的
+ * 「分类圆点」一节。
  *
  * `large` 这一档目前没有组合落在里头：解锁页标题 19px / 650 字重，按标准仍算
  * 正文（大字线要 700 字重或 24px）。留着是为了量到它时不用改分档表。
  *
- * 侧栏是唯一「底色不是令牌」的区域（macOS 材质，PRD §7.2）。材质实测读数在
- * scripts/a3-probe.sh，本脚本只覆盖侧栏里**自带不透明底**的两处（.cat-n 徽章、
- * .btn-gho 按钮），它们的底色仍是令牌，文字色则取 `.sider` 作用域里的重定义值。
+ * 侧栏底色 2026-10-09 起落令牌（先 --bg、同日提亮到 --panel-2，沿革见
+ * SIDER_MATERIAL 处的注释），侧栏文字组合全部进 PAIRS 表按令牌现算。
+ * `.sider` 作用域重定义已删，`scope: 'sider'` 机制保留，将来再出现作用域
+ * 覆盖时直接可用。
  *
  * 另有一条「色值不外泄」断言：令牌文件之外出现的十六进制色值必须逐条登记在
  * 下面的 ALLOWED_HEX 里并写明理由。散在规则与 TS 里的裸色值不跟着令牌走，
@@ -104,7 +106,8 @@ function readTokens() {
         varsIn(blockOf(fs.readFileSync(path.join(STYLES, f), 'utf8'), ':root {'))));
 }
 
-/** 侧栏作用域里被重定义的文字令牌。只有这一个 —— 见 views.css 的注释。 */
+/** 侧栏作用域里被重定义的文字令牌。覆盖已删（2026-10-09），机制保留：
+    再出现作用域覆盖时无需改这里。 */
 function readSiderOverrides() {
     const css = fs.readFileSync(path.join(STYLES, 'views.css'), 'utf8');
     return varsIn(blockOf(css, '.sider {'));
@@ -116,16 +119,14 @@ function readSiderOverrides() {
 const DOT_MIN = 4.0;
 
 /**
- * `#33383b`：侧栏材质的实测中位数，圆点绝大多数时候压在这个底上。
+ * 侧栏底色（圆点与焦点环的「侧栏底」取它）。
  *
- * 这是本脚本唯一一个不在 tokens.css 里的颜色，理由与 PAIRS 里那两条侧栏组合相同
- * （材质底色不是令牌）。读数出自 `scripts/a3-probe.sh` 那次的整屏截图：
- * 窗口 x0=390 / y0≈212，取侧栏 496 像素宽的中位数；同一次测量里详情面板的中位数
- * 正好等于 `--panel`，说明取样位置是准的。改侧栏材质（`windowEffects`）后要重量。
+ * 沿革：材质时代取实测量 #33383b（scripts/a3-probe.sh 那次的整屏截图侧栏中位数，
+ * 同一次测量里详情面板的中位数正好等于 --panel，证明取样位置准）；2026-10-09
+ * 材质退役，先铺 --bg；同日复看改口径「侧栏要比主内容区浅」，随 views.css 的
+ * `.sider` 落 --panel-2。以后改侧栏底色，这里同步改。
  */
-// 侧栏底色。2026-10-09 材质退役（NSVisualEffectView 换成铺 --bg），从实测量
-// #33383b 回到令牌值；变量名留着，圆点与焦点环的「侧栏底」取它。
-const SIDER_MATERIAL = '#0a0a0a';
+const SIDER_MATERIAL = '#262626';
 
 /** 分类圆点色板：从 `src/vault/model.ts` 的 `DOT_COLORS` 现读，不在本脚本里再抄一份。 */
 function readDotColors() {
@@ -153,7 +154,7 @@ const PAIRS = [
     { fg: '--ink', bg: '--bg', tier: 'text', where: '解锁页落在 --bg 上的正文' },
     { fg: '--ink', bg: '--panel-2', tier: 'text', where: '.inp 输入框里的值（body 继承 --ink）' },
     { fg: '--ink-2', bg: '--panel', tier: 'text', where: '.block-v 备注、tag、.pw-col 标签' },
-    { fg: '--ink-2', bg: '--bg', tier: 'text', scope: 'sider', where: '侧栏文字（2026-10-09 材质退役，底色回令牌 --bg）：.cat 名称、.cats-label、.vault-name' },
+    { fg: '--ink-2', bg: '--panel-2', tier: 'text', scope: 'sider', where: '侧栏文字（2026-10-09 侧栏提亮，底色落 --panel-2）：.cat 名称、.cats-label、.vault-name' },
     { fg: '--ink-2', bg: '--panel-2', tier: 'text', where: '.btn-gho 按钮文字（落在主内容区 --panel 上的）' },
     { fg: '--ink-2', bg: '--panel-3', tier: 'text', where: '.tag 与 .ava 的文字、.pill 的底，以及卡片抬 panel-2 后的次级块：.vault-row / .loc-row 路径、悬停设置行的副标题、卡片内 .btn-gho 文字' },
     { fg: '--ink', bg: '--panel-3', tier: 'text', where: '.icon-btn 悬停时的图标与文字' },
@@ -189,8 +190,7 @@ const PAIRS = [
     // 600 档铺满一整行偏亮，且白字只有 4.66:1。
     { fgHex: '#ffffff', bg: '--accent-fill-2', tier: 'text', where: '侧栏选中行 .cat.on' },
 
-    // 侧栏里自带不透明底的两处（文字色取 .sider 作用域的重定义值）。
-    // 落在材质上的文字不在此表 —— 底色不是令牌，由 scripts/a3-probe.sh 实测。
+    // 侧栏里自带不透明底的两处（`.sider` 作用域覆盖已删，scope 机制保留）。
     { fg: '--ink-2', bg: '--panel', tier: 'text', scope: 'sider', where: '.cat-n 计数徽章' },
     { fg: '--ink-2', bg: '--panel-2', tier: 'text', scope: 'sider', where: '.btn-gho 按钮' }
 ];
@@ -209,7 +209,7 @@ const ALLOWED_HEX = [
     {
         file: 'src/styles/views.css',
         hex: '#e5e5e5',
-        reason: '侧栏 --ink-2 覆盖值（neutral-200）。侧栏底色是 macOS 材质（不是令牌），只能在 .sider 作用域里另给，理由见该处注释与 scripts/a3-probe.sh'
+        reason: '历史沿革注释提及：材质时代 .sider 作用域的 --ink-2 覆盖值（规则已删，views.css 注释里留着沿革说明）'
     },
     { file: 'src/vault/model.ts', hex: '#f9a8d4', reason: '分类圆点色板（Tailwind v4 300 档，10 个一组），对比度断言见本脚本「分类圆点」一节' },
     { file: 'src/vault/model.ts', hex: '#fdba74', reason: '同上' },
@@ -282,12 +282,12 @@ function main() {
     );
 
     const dotBacks = [
-        { label: '侧栏 --bg', rgb: parseHex(SIDER_MATERIAL) },
+        { label: '侧栏 --panel-2', rgb: parseHex(SIDER_MATERIAL) },
         { label: '--panel-3 悬停', rgb: tokens['--panel-3'] },
         { label: '--accent-soft 选中', rgb: tokens['--accent-soft'] }
     ].filter((b) => b.rgb);
 
-    check('L2 圆点底色取到', '三类底都能取到（材质为实测量）', dotBacks.length === 3, dotBacks.map((b) => b.label).join(' · '));
+    check('L2 圆点底色取到', '三类底都能取到（侧栏底随 .sider 落令牌）', dotBacks.length === 3, dotBacks.map((b) => b.label).join(' · '));
 
     if (dots.length && dotBacks.length === 3) {
         let worst = { r: Infinity, dot: '', label: '' };
@@ -330,14 +330,14 @@ function main() {
     // 压的是底，不是元素自身。少了它，环会直接盖在实心主按钮（--accent-fill）上，
     // 蓝压蓝只有 1.79:1，键盘走一圈等于没有提示。
     //
-    // 四类底取实际会出现的：面板、输入框底、悬停面、侧栏毛玻璃（实测量）。
+    // 四类底取实际会出现的：面板、输入框底、悬停面、侧栏底。
     console.log('\n  ── 焦点环 ──');
     const ring = tokens['--accent-2'];
     const ringBacks = [
         { label: '--panel', rgb: tokens['--panel'] },
         { label: '--panel-2', rgb: tokens['--panel-2'] },
         { label: '--panel-3', rgb: tokens['--panel-3'] },
-        { label: '侧栏 --bg', rgb: parseHex(SIDER_MATERIAL) }
+        { label: '侧栏 --panel-2', rgb: parseHex(SIDER_MATERIAL) }
     ].filter((b) => b.rgb);
 
     check(
