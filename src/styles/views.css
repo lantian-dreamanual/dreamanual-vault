@@ -1329,57 +1329,57 @@ select.srow-ctl {
     color: var(--warn-ink);
 }
 
-/* ---------- 保存状态（浮层气泡） ----------
-   原先是底栏里的一行，`min-height: 15px` 常驻占位（防「已保存」出现时底栏
-   跳动）。代价是分隔线下方永远空着一条 15px —— 与视频下载并排看，就是
-   「线到内容的距离比对面大」的来源。占位本身在，间距规范调不动它。
+/* ---------- 保存状态（图标位） ----------
+   浮层气泡（2026-10-09 上午）寿命只有半天：它把保存状态从底栏占位行收进
+   浮层，但与编辑保存时弹的 Toast 是两处 tooltip，同屏抢视觉 —— 下午用户
+   拍板收成一枚图标，放底栏行里、库名右侧（.vault-switch 之后）。
 
-   改成气泡浮在分隔线**之上**：不参与布局，只在保存中 / 保存失败 / 刚保存完
-   时出现，其余时刻完全收起（opacity + visibility，不可点击）。出现时机由
-   main.ts 切 .is-on。
+   形态与语义：
+   - 占位常驻（宽 14px），透明度 0 ↔ 1 切换 —— 出现 / 消失不推挤库名与
+     右侧按钮，底栏不跳。
+   - saving→save（accent + 呼吸）/ saved→save-check（ok，露 2 秒收）/
+     error→save-off（danger，常驻到下一次保存成功）。族色压侧栏 --bg 达标
+     （族色本来就是为固定深色底配的），形状 + 颜色双通道表达状态。
+   - 悬停语义走原生 title（main.ts 随状态换文案）—— 图标不带字，说明
+     放在悬停里。
+   保存失败时仍会弹一条带详情的 Toast —— 图标是环境反馈，失败原因只有
+   那一次知道，分工与气泡时代一致。 */
 
-   2026-10-09 换皮：原先 panel 深底 + 描边 + r6 是单独起的模样，与同窗的
-   Toast（浅实色底 + 深字 + r10 + 语义图标）是两种 tooltip。统一取 Toast 的
-   皮 —— toast-bg / toast-ink / r10 / 500 字重 / shadow-toast，语义也交給
-   Toast 那套图标（保存中 info / 已保存 ok / 失败 err），文字色不再随状态
-   变（语义靠形状，与 Toast 同一条理由：族色压浅实色底不到 3:1）。锚位与
-   出没时机不动 —— 那是同日上午拍板的位置方案，这次只统一皮。宽度改内容
-   自适应（原先通栏描边气泡），紧凑胶囊与 Toast 形态一致。 */
-
-.save-state {
-    position: absolute;
-    left: var(--sp-16);
-    /* 百分比参照 .sider-foot 的 padding box，100% 只到 border-top 的下缘，
-       再加 1px 跨过分隔线本身，气泡才落在线的上方。 */
-    bottom: calc(100% + var(--sp-8) + 1px);
-    z-index: 3;
-    display: flex;
-    align-items: center;
-    gap: var(--sp-8);
-    font-size: var(--fs-12);
-    font-weight: 500;
-    color: var(--toast-ink);
-    background: var(--toast-bg);
-    border-radius: var(--r-10);
-    padding: var(--sp-8) var(--sp-16);
-    box-shadow: var(--shadow-toast);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(var(--sp-4));
-    transition: var(--mo-fast);
-    pointer-events: none;
-}
-
-/* 图标与文字同取 --toast-ink，且不被压扁 —— 与 base.css 的 .toast svg 同一条。 */
-.save-state svg {
+.save-flag {
     flex: none;
-    color: var(--toast-ink);
+    display: inline-flex;
+    color: var(--ink-3);
+    opacity: 0;
+    transition: var(--mo-fast);
 }
 
-.save-state.is-on {
+.save-flag svg {
+    display: block;
+}
+
+.save-flag.is-on {
     opacity: 1;
-    visibility: visible;
-    transform: none;
+}
+
+.save-flag.is-saving {
+    color: var(--accent);
+    /* 呼吸周期是「循环快慢」，不在 --mo-* 三档过渡刻度里（那三档管的是
+       状态切换的时长），取 1.2s 是体感值 —— 布局值不进令牌的判据。 */
+    animation: save-pulse 1.2s ease-in-out infinite;
+}
+
+.save-flag.is-saved {
+    color: var(--ok);
+}
+
+.save-flag.is-error {
+    color: var(--danger);
+}
+
+@keyframes save-pulse {
+    50% {
+        opacity: 0.45;
+    }
 }
 
 /* 建库卡片字段最多，默认的 1080×720 视口下会长过窗口。只给这一档收紧

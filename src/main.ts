@@ -68,7 +68,7 @@ const btnNewEntry = must<HTMLButtonElement>('#btn-new-entry');
 const btnSettings = must<HTMLButtonElement>('#btn-settings');
 const btnVault = must<HTMLButtonElement>('#btn-vault');
 const vaultNameEl = must('#vault-name');
-const saveStateEl = must('#save-state');
+const saveFlagEl = must('#save-flag');
 
 let settingsOpen = false;
 /** 在下面 `new SettingsView(...)` 时赋值。`setSettingsOpen` 声明在前面，
@@ -424,7 +424,7 @@ let lastSaveError: string | null = null;
 let saveHideTimer: number | null = null;
 /** 上一次渲染过的保存状态。store 的订阅还会因库名、条目数等别的变化触发，
     只比这个字段才能分辨「真的又保存了一次」和「其它东西变了」——
-    否则浮层会被无关的订阅反复点亮。 */
+    否则状态位会被无关的订阅反复点亮。 */
 let lastSaveState: string | null = null;
 
 function clearSaveHideTimer(): void {
@@ -440,8 +440,8 @@ store.subscribe((status) => {
 
     if (!store.isOpen()) {
         clearSaveHideTimer();
-        saveStateEl.className = 'save-state';
-        saveStateEl.textContent = '';
+        saveFlagEl.className = 'save-flag';
+        saveFlagEl.title = '';
         lastSaveError = null;
         lastSaveState = null;
         return;
@@ -451,18 +451,23 @@ store.subscribe((status) => {
     lastSaveState = status.saveState;
 
     clearSaveHideTimer();
-    saveStateEl.className = 'save-state';
+    saveFlagEl.className = 'save-flag';
 
-    // 皮与 Toast 同款（views.css），语义同 Toast 那三枚图标：保存中 info /
-    // 已保存 ok / 失败 err —— 文字色恒为 --toast-ink，语义靠形状承载。
+    // 保存状态收敛成底栏的一枚图标（库名右侧）：saving→save / saved→save-check /
+    // error→save-off。原先的浮层气泡与编辑保存时弹的 Toast 是两处 tooltip，
+    // 同屏抢视觉（2026-10-09 用户拍板收成图标）。图标是环境反馈，在原位变化、
+    // 不弹层；悬停语义走原生 title。保存失败仍会弹一条带详情的 Toast ——
+    // 失败原因（status.error）只有那一次知道，分工与气泡时代一致。
     switch (status.saveState) {
         case 'saving':
-            saveStateEl.innerHTML = `${icons.info()}<span>保存中…</span>`;
-            saveStateEl.classList.add('is-on');
+            saveFlagEl.innerHTML = icons.save();
+            saveFlagEl.title = '保存中…';
+            saveFlagEl.classList.add('is-saving', 'is-on');
             break;
         case 'error':
-            saveStateEl.innerHTML = `${icons.err()}<span>保存失败，改动暂存在内存里</span>`;
-            saveStateEl.classList.add('is-on');
+            saveFlagEl.innerHTML = icons.saveOff();
+            saveFlagEl.title = '保存失败，改动暂存在内存里';
+            saveFlagEl.classList.add('is-error', 'is-on');
             if (status.error && status.error !== lastSaveError) {
                 lastSaveError = status.error;
                 toast(`保存失败：${status.error}`, 'err', 3200);
@@ -470,18 +475,18 @@ store.subscribe((status) => {
             break;
         case 'saved': {
             lastSaveError = null;
-            const savedText = status.savedAt ? `已保存 ${clockTime(status.savedAt)}` : '已保存';
-            saveStateEl.innerHTML = `${icons.ok()}<span>${savedText}</span>`;
-            saveStateEl.classList.add('is-on');
+            saveFlagEl.innerHTML = icons.saveCheck();
+            saveFlagEl.title = status.savedAt ? `已保存 ${clockTime(status.savedAt)}` : '已保存';
+            saveFlagEl.classList.add('is-saved', 'is-on');
             // 「已保存」是默认态，常挂着就是噪声：露一下就走。
             saveHideTimer = window.setTimeout(() => {
                 saveHideTimer = null;
-                saveStateEl.classList.remove('is-on');
+                saveFlagEl.classList.remove('is-on');
             }, 2000);
             break;
         }
         default:
-            saveStateEl.textContent = '';
+            saveFlagEl.title = '';
             break;
     }
 });

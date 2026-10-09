@@ -299,9 +299,10 @@ export class EntryEditor {
             updatedAt: today()
         };
 
-        const wasEditing = this.editing !== null;
         this.close();
         this.host.onSave(entry);
-        toast(wasEditing ? `已更新「${entry.title}」` : `已新建「${entry.title}」`, 'ok');
+        // 保存成功不弹 Toast：底栏的 save-check 图标就是确认（同屏两处反馈
+        // 抢视觉，2026-10-09 用户拍板收成图标位）。失败仍由 store 订阅方弹
+        // 带详情的 Toast —— 那里的原因文案这里拿不到。
     }
 }

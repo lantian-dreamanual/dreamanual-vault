@@ -32,5 +32,12 @@ export const icons = {
     // 三处调用不在别处复用，默认值直接给规格值，省掉每次写尺寸。
     ok: (size = 16) => wrap('circle-check', size),
     err: (size = 16) => wrap('circle-x', size),
-    info: (size = 16) => wrap('info', size)
+    info: (size = 16) => wrap('info', size),
+
+    // 保存状态位（底栏库名右侧，main.ts 的 store 订阅注入）。默认 14 ——
+    // 与同排两个 icon-btn 同尺寸。三态：saving→save / saved→save-check /
+    // error→save-off，形状 + 颜色双通道表达状态（CSS 侧管颜色）。
+    save: (size = 14) => wrap('save', size),
+    saveCheck: (size = 14) => wrap('save-check', size),
+    saveOff: (size = 14) => wrap('save-off', size)
 } as const;
