@@ -270,13 +270,17 @@ export class VaultView {
             );
         };
 
+        // 分类 tag 的字色跟随分类自己（侧栏圆点同源）；没设过的走哈希自动色。
+        const colors = this.store.groupColors();
+        const catColor = colors[entry.group] ?? groupColor(entry.group);
+
         this.detailEl.innerHTML =
             `<div class="detail-head">` +
             `<div class="detail-ava">${entryInitial(entry)}</div>` +
             `<div>` +
             `<div class="detail-title">${highlight(entry.title, this.query)}</div>` +
             `<div class="detail-tags">` +
-            `<span class="tag tag-cat">${escapeHtml(entry.group)}</span>` +
+            `<span class="tag tag-cat" style="color:${catColor}">${escapeHtml(entry.group)}</span>` +
             `<span class="tag">更新于 ${escapeHtml(entry.updatedAt)}</span>` +
             `</div></div>` +
             `<div class="detail-acts">` +

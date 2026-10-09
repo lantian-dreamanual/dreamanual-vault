@@ -11,9 +11,12 @@
  *   large  3.0:1  大字（≥24px，或 ≥18.66px 且 ≥700 字重）
  *   ui     3.0:1  承载信息的图形：强度条填充、开关滑块
  *
- * 分类圆点**不在这三档里**，它另有一条更严的断言（4.0:1）—— 圆点只有 6px、
- * 又是唯一区分分类的线索，比非文本的 3:1 再收一档。逐格读数见下面的
- * 「分类圆点」一节。
+ * 分类圆点**不在这三档里**，它另有一条断言（DOT_MIN，3.0:1 = WCAG 非文本档）。
+ * 沿革：色板还是 300 档时曾自定 4.0:1（圆点 6px 又小又唯一）；2026-10-09 色板
+ * 加深到 400 档（用户反馈「太浅」，主因是分类色要当详情 tag 的**文字**用，4.5:1
+ * 只有 400 档做得到），最差格 violet-400 压悬停 panel-3 落在 3.8:1，圆点判据
+ * 回落非文本 3:1 —— 侧栏里分类还有名称文字可读，且 tag 文字的 4.5 由下面
+ * 「分类圆点」一节的第二条断言单独把守。逐格读数见那一节。
  *
  * `large` 这一档目前没有组合落在里头：解锁页标题 19px / 650 字重，按标准仍算
  * 正文（大字线要 700 字重或 24px）。留着是为了量到它时不用改分档表。
@@ -115,8 +118,9 @@ function readSiderOverrides() {
 
 // ----------------------------------------------------------------- 分类圆点色板
 
-/** 色板门槛。比 WCAG 非文本的 3:1 留一档：圆点只有 6px，面积小、又是唯一区分分类的线索。 */
-const DOT_MIN = 4.0;
+/** 色板门槛（WCAG 1.4.11 非文本）。沿革见文件头注释：300 档时代自定 4.0，
+ *  2026-10-09 加深到 400 档后最差格 3.8:1，回落非文本 3.0。 */
+const DOT_MIN = 3.0;
 
 /**
  * 侧栏底色（圆点与焦点环的「侧栏底」取它）。
@@ -155,14 +159,14 @@ const PAIRS = [
     { fg: '--ink', bg: '--panel-2', tier: 'text', where: '.inp 输入框里的值（body 继承 --ink）' },
     { fg: '--ink-2', bg: '--panel', tier: 'text', where: '.block-v 备注、tag、.pw-col 标签' },
     { fg: '--ink-2', bg: '--panel-2', tier: 'text', scope: 'sider', where: '侧栏文字（2026-10-09 侧栏提亮，底色落 --panel-2）：.cat 名称、.cats-label、.vault-name' },
-    { fg: '--ink-2', bg: '--panel-2', tier: 'text', where: '.btn-gho 按钮文字（落在主内容区 --panel 上的）' },
-    { fg: '--ink-2', bg: '--panel-3', tier: 'text', where: '.tag 与 .ava 的文字、.pill 的底，以及卡片抬 panel-2 后的次级块：.vault-row / .loc-row 路径、悬停设置行的副标题、卡片内 .btn-gho 文字' },
+    { fg: '--ink-2', bg: '--panel-2', tier: 'text', where: '.btn-gho 按钮文字（落在主内容区 --panel 上的）、.tag「更新于」标签（2026-10-09 徽章改版同步后底 panel-2）' },
+    { fg: '--ink-2', bg: '--panel-3', tier: 'text', where: '.ava 的文字、以及卡片抬 panel-2 后的次级块：.vault-row / .loc-row 路径、悬停设置行的副标题、卡片内 .btn-gho 文字' },
     { fg: '--ink', bg: '--panel-3', tier: 'text', where: '.icon-btn 悬停时的图标与文字' },
     { fg: '--ink-3', bg: '--panel', tier: 'text', where: '.row-k 字段标签、.row-v.muted「未填写」、空态、.hint' },
     { fg: '--ink-3', bg: '--panel-2', tier: 'text', where: '列表副标题 .item-sub、解锁/弹窗里的 .hint 与副文本（--panel-2）' },
     { fg: '--ink-3', bg: '--panel-3', tier: 'ui', where: '.vault-row-chev 的箭头（.vault-row 抬到 panel-3；图形按 3:1 判）' },
     { fg: '--accent', bg: '--panel', tier: 'text', where: '.save-state.is-busy 的强调文字（保存中气泡）' },
-    { fg: '--accent-2', bg: '--accent-soft', tier: 'text', where: '.detail-ava、.tag-cat、.pill.ok' },
+    { fg: '--accent-2', bg: '--accent-soft', tier: 'text', where: '.detail-ava、.pill.ok（.tag-cat 2026-10-09 起改分类自色，走「分类圆点」一节的 L3b 断言）' },
     { fg: '--accent-2', bg: '--panel', tier: 'text', where: '「请我喝杯咖啡」的咖啡图标与文字（设置页 .srow-lead 常亮强调色）' },
     { fg: '--accent-2', bg: '--panel-2', tier: 'text', where: '「请我喝杯咖啡」行悬停（.srow-link 豁免于通用悬停底 panel-3，保持 panel-2 —— accent-2 压 panel-3 只有 4.08）' },
     { fg: '--danger', bg: '--panel', tier: 'text', where: '.ctxmenu 危险项、.save-state.is-error' },
@@ -211,7 +215,17 @@ const ALLOWED_HEX = [
         hex: '#e5e5e5',
         reason: '历史沿革注释提及：材质时代 .sider 作用域的 --ink-2 覆盖值（规则已删，views.css 注释里留着沿革说明）'
     },
-    { file: 'src/vault/model.ts', hex: '#f9a8d4', reason: '分类圆点色板（Tailwind v4 300 档，10 个一组），对比度断言见本脚本「分类圆点」一节' },
+    { file: 'src/vault/model.ts', hex: '#f472b6', reason: '分类色板（Tailwind v4 400 档，10 个一组）：侧栏圆点 / 色板色格 / 详情 .tag-cat 文字三处同源，对比度断言见「分类圆点」一节' },
+    { file: 'src/vault/model.ts', hex: '#fb923c', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#facc15', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#a3e635', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#4ade80', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#2dd4bf', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#22d3ee', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#60a5fa', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#a78bfa', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#e879f9', reason: '同上' },
+    { file: 'src/vault/model.ts', hex: '#f9a8d4', reason: '旧档（300 档）色值，只出现在 LEGACY_DOT_COLORS 迁移映射里：库里存过旧色的分组读回时映射到新档' },
     { file: 'src/vault/model.ts', hex: '#fdba74', reason: '同上' },
     { file: 'src/vault/model.ts', hex: '#fde047', reason: '同上' },
     { file: 'src/vault/model.ts', hex: '#bef264', reason: '同上' },
@@ -303,6 +317,23 @@ function main() {
             worst.r + 1e-9 >= DOT_MIN,
             `最差 ${worst.dot} on ${worst.label} = ${worst.r.toFixed(2)}:1`
         );
+
+        // 分类色还以**文字**出现在详情的 .tag-cat（压 --panel-2），文字按 4.5 判 ——
+        // 这条是 2026-10-09 色板加深到 400 档的动因所在，缺了它加深就白加。
+        const panel2 = tokens['--panel-2'];
+        if (panel2) {
+            let worstTag = { r: Infinity, dot: '' };
+            for (const dot of dots) {
+                const r = ratio(parseHex(dot), panel2);
+                if (r < worstTag.r) worstTag = { r, dot };
+            }
+            check(
+                'L3b 分类色作 tag 文字',
+                '.tag-cat 字色（分类色）压 --panel-2 上都 ≥ 4.5:1',
+                worstTag.r + 1e-9 >= 4.5,
+                `最差 ${worstTag.dot} = ${worstTag.r.toFixed(2)}:1`
+            );
+        }
     }
 
     // ---- ④ 色值不外泄

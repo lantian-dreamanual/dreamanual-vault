@@ -774,12 +774,16 @@ mark {
     font-weight: 600;
     padding: var(--sp-2) var(--sp-8);
     border-radius: 20px;
-    background: var(--panel-3);
+    /* 2026-10-09 徽章改版同步：底 panel-2 + line-2 发丝，与 .pill、状态徽章同一配方
+       （原 panel-3 底与卡片无层次）。 */
+    background: var(--panel-2);
+    box-shadow: inset 0 0 0 1px var(--line-2);
     color: var(--ink-2);
 }
 
+/* 字色由视图按分类注入（style="color:…"，与侧栏圆点同源），这里不再配底色 ——
+   2026-10-09 起 detail 的分类 tag 用分类自己的颜色，底走 .tag 的统一配方。 */
 .tag-cat {
-    background: var(--accent-soft);
     color: var(--accent-2);
 }
 

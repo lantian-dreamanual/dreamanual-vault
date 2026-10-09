@@ -36,7 +36,7 @@
 import type * as KdbxwebNs from 'kdbxweb';
 import { argon2ImplWebview } from './argon2';
 import { KDF_PRESETS, presetToKdfParams, type PresetName } from './kdf';
-import { UNCATEGORIZED, isDotColor, type VaultEntry } from './model';
+import { UNCATEGORIZED, isDotColor, normalizeDotColor, type VaultEntry } from './model';
 import {
     VaultFormatError,
     WrongPasswordError,
@@ -397,12 +397,16 @@ export class VaultSession implements VaultSessionApi {
             .filter(Boolean);
     }
 
-    /** 分类名 → 自定义颜色。只有设过的分类在表里，其余走 `groupColor()` 的自动色。 */
+    /** 分类名 → 自定义颜色。只有设过的分类在表里，其余走 `groupColor()` 的自动色。
+     *
+     *  读取走 `normalizeDotColor()`：加深色板前存进库的旧值（300 档）映射到新档，
+     *  不在此列的任意值退回自动色。 */
     groupColors(): Record<string, string> {
         const out: Record<string, string> = {};
         for (const g of this.groupList()) {
             const value = g.customData?.get(GROUP_COLOR_KEY)?.value;
-            if (g.name && value && isDotColor(value)) out[g.name] = value;
+            const color = g.name && value ? normalizeDotColor(value) : null;
+            if (g.name && color) out[g.name] = color;
         }
         return out;
     }
