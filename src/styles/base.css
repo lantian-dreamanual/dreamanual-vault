@@ -165,6 +165,8 @@ svg {
     flex-direction: column;
     gap: var(--sp-6);
     margin-bottom: var(--sp-14);
+    /* .caps-hint（大写锁定指示器）以本容器定位，钉在输入框内右侧 */
+    position: relative;
 }
 
 .field > label,
@@ -218,19 +220,21 @@ svg {
     -webkit-text-security: disc;
 }
 
-/* 大写锁定提示：琥珀字不算错误，只是「输的可能不是你想输的」；
-   图标与字同色（Toast 同一判断）。 */
+/* 大写锁定指示器：Lucide a-arrow-up 画在输入框内右侧。绝对定位 ——
+   上一版是文档流里的提示行，出现时把解锁卡撑高一行（2026-10-10 用户反馈）。
+   琥珀字不算错误，只是「输的可能不是你想输的」；图标与字同色（Toast 同一判断）。 */
 .caps-hint {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-6);
-    margin-top: var(--sp-6);
-    font-size: var(--fs-12);
+    position: absolute;
+    right: var(--sp-12);
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--warn-ink);
+    pointer-events: none;
 }
 
-.caps-hint[hidden] {
-    display: none;
+/* 图标宽 15 + 右边距 12 + 一点余量：掩码圆点别顶到图标底下。 */
+#lock-pw {
+    padding-right: 36px;
 }
 
 /* 卡片（.modal / .lock-card / .srow，均已抬到 panel-2）里的输入件跟着抬一档

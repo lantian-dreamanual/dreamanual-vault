@@ -45,7 +45,7 @@
   <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></symbol>
   <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
   <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
-  <symbol id="ic-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></symbol>
+  <symbol id="ic-a-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="m14 11 4-4 4 4"/><path d="M18 16V7"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/></symbol>
   <symbol id="ic-external-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></symbol>
   <symbol id="ic-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="ic-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></symbol>
@@ -99,12 +99,12 @@
            失去挂点；掩码由 .pw-mask（-webkit-text-security）接管，「大写锁定
            开着」的语义由下面这行自绘提示接管。 -->
       <input class="inp pw-mask" type="text" id="lock-pw" placeholder="输入主密码" aria-label="主密码" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-      <!-- 大写锁定提示：原生的 ⇪ 指示器被输入框的自定义高度衬成一根拉长的
-           胶囊（2026-10-10 用户反馈），CSS 退役后由 unlock.ts 按
-           getModifierState('CapsLock') 接管 —— 只在真开着时出现。 -->
-      <div class="caps-hint" id="lock-caps" hidden>
-        <svg width="12" height="12" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-arrow-up"/></svg>
-        已开启大写锁定
+      <!-- 大写锁定指示器：Lucide a-arrow-up 画在输入框内右侧（2026-10-10 用户
+           定稿）。绝对定位不占文档流 —— 提示行放卡片里那版出现时会把卡片撑高
+           一行；图标只在该出现时显形，语义由 unlock.ts 读 getModifierState
+           接管，失焦即收、聚焦按记忆恢复。 -->
+      <div class="caps-hint" id="lock-caps" hidden role="img" aria-label="已开启大写锁定" title="已开启大写锁定">
+        <svg width="15" height="15" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true"><use href="#ic-a-arrow-up"/></svg>
       </div>
     </div>
 

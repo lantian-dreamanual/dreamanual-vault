@@ -33,6 +33,8 @@ export class UnlockView {
     // 解锁卡片
     private cardOpen = must('#lock-card');
     private openPw = must<HTMLInputElement>('#lock-pw');
+    /** 大写锁定最近一次键盘事件读到的状态；focus 恢复显形靠它（见 wireCapsHint） */
+    private capsOn = false;
     private openBtn = must<HTMLButtonElement>('#lock-submit');
     private openMsg = must('#lock-msg');
     private openBar = must('#lock-bar');
@@ -111,17 +113,28 @@ export class UnlockView {
         this.wireCapsHint();
     }
 
-    /** 大写锁定提示：原生 ⇪ 指示器已由 CSS 退役（被自定义高的输入框衬成拉长
-     *  胶囊，2026-10-10），这里读事件自带的修饰键状态自绘。焦点进来时键盘
-     *  还没动过、读不到状态，所以只在 keydown / keyup 上判，失焦即收。 */
+    /** 大写锁定指示器：a-arrow-up 画在输入框内右侧（CSS），这里只管显隐。
+     *
+     *  键盘焦点进来时一个键都还没按过、读不到修饰键状态 —— 所以状态要**记着**：
+     *  keydown / keyup 刷新 `capsOn`，focus 按 `capsOn` 恢复显形。第一版只在
+     *  键盘事件上判 + 失焦即收，结果失焦回来（键没再动）指示器就丢了
+     *  （2026-10-10 用户反馈）。显隐同时要求聚焦：指示器钉在输入框里，
+     *  失焦后它没有意义。 */
     private wireCapsHint(): void {
         const hint = must('#lock-caps');
-        const update = (ev: Event): void => {
-            hint.hidden = !(ev instanceof KeyboardEvent && ev.getModifierState('CapsLock'));
+        const sync = (): void => {
+            hint.hidden = !(this.capsOn && document.activeElement === this.openPw);
         };
-        this.openPw.addEventListener('keydown', update);
-        this.openPw.addEventListener('keyup', update);
-        this.openPw.addEventListener('blur', () => { hint.hidden = true; });
+        this.openPw.addEventListener('keydown', (ev) => {
+            this.capsOn = ev.getModifierState('CapsLock');
+            sync();
+        });
+        this.openPw.addEventListener('keyup', (ev) => {
+            this.capsOn = ev.getModifierState('CapsLock');
+            sync();
+        });
+        this.openPw.addEventListener('focus', sync);
+        this.openPw.addEventListener('blur', sync);
     }
 
     // ---------------------------------------------------------------- 换库菜单
