@@ -90,7 +90,7 @@ function readSymbols(html) {
     return out;
 }
 
-/** 去掉 icon 的 defs 那一整块（宽高为 0、含 #brand-key 与全部 symbol）。 */
+/** 去掉 icon 的 defs 那一整块（宽高为 0、含全部 symbol）。 */
 function stripDefs(html) {
     return html.replace(/<svg width="0" height="0"[\s\S]*?<\/defs><\/svg>/, '');
 }
@@ -238,12 +238,12 @@ async function main() {
         formula !== null && Number(formula[1]) === STROKE_NUMERATOR,
         formula ? `strokeFor = ${formula[1]} / size` : '在 src/ui/icons.ts 里找不到 strokeFor = N / size');
 
-    // ---- ⑧ 品牌钥匙不能被顺手换掉
-    //   它是应用身份标记（跟随 App 图标），不是通用图标。曾经有过一次
-    //   把用户故意改的蓝色钥匙按旧稿反推回金色的事。
-    const brandOk = /id="brand-key"/.test(html) && /<use href="#brand-key"/.test(html);
-    check('I8 品牌钥匙还在', '它是身份标记，不属于 lucide 图标集',
-        brandOk, brandOk ? 'index.html 里 <use href="#brand-key"> 三处引用完好' : '找不到了');
+    // ---- ⑧ 品牌图不能被顺手换掉
+    //   它是应用身份标记（public/app-icon.jpg，与 App 图标同源），不是通用图标。
+    //   曾经有过一次把用户故意改的蓝色钥匙按旧稿反推回金色的事。
+    const brandUses = (html.match(/src="\/app-icon\.jpg"/g) || []).length;
+    check('I8 品牌图还在', '它是身份标记，不属于 lucide 图标集',
+        brandUses === 3, brandUses === 3 ? 'index.html 里 app-icon.jpg 三处引用完好' : `只找到 ${brandUses} 处（应为 3）`);
 
     // ---- ⑨（可选）基准本身与官方线上一致
     if (online) {

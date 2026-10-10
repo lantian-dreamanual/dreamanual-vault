@@ -22,10 +22,7 @@
     width: 48px;
     height: 48px;
     border-radius: var(--r-12);
-    background: linear-gradient(150deg, var(--accent), var(--accent-fill));
-    display: grid;
-    place-items: center;
-    color: #fff;
+    overflow: hidden;
     margin-bottom: var(--sp-16);
 }
 
@@ -172,21 +169,19 @@
     width: 26px;
     height: 26px;
     border-radius: var(--r-8);
-    background: linear-gradient(150deg, var(--accent), var(--accent-fill));
-    display: grid;
-    place-items: center;
-    color: #fff;
+    overflow: hidden;
     flex: none;
 }
 
-/* 品牌钥匙在方底里的占比，与 App 图标统一。
-   口径取「钥匙高 ÷ 图标整幅」（1024 画布），而不是「÷ 深色底板」—— 底板之外还有 100 透明留边，
-   按画布算才和看图标时的整体感一致：657 / 1024 = 64.2%。
-   symbol 的 viewBox 里钥匙占 20/24 高，故 svg = 64.2% × 24/20 = 77%。 */
-.lock-mark svg,
-.brand-ic svg {
-    width: 77%;
-    height: 77%;
+/* 品牌位直接放 App 图标原图（public/app-icon.jpg，满幅无留边）：容器只管尺寸与圆角，
+   图片铺满裁切。此前是照旧图标描的矢量钥匙 + 令牌渐变底（mark 占 77% 的口径），
+   换一次图标就得重描一次，2026-10-10 改单一来源图片。 */
+.lock-mark img,
+.brand-ic img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .brand b {

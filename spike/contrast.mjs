@@ -209,7 +209,7 @@ const TIER_MIN = { text: 4.5, large: 3.0, ui: 3.0 };
  */
 const ALLOWED_HEX = [
     { file: 'src/styles/base.css', hex: '#fff', reason: '.btn-pri 主按钮文字：压在实心 --accent-fill 上，正白' },
-    { file: 'src/styles/views.css', hex: '#fff', reason: '.lock-mark / .brand-ic 品牌渐变上的图标与 .switch i::after 开关滑块（图形，非文字；滑块压在 --accent-fill 上，断言见 PAIRS 表）' },
+    { file: 'src/styles/views.css', hex: '#fff', reason: '.switch i::after 开关滑块（图形，非文字；压在 --accent-fill 上，断言见 PAIRS 表）。品牌位 .lock-mark / .brand-ic 已改放 App 图标原图（public/app-icon.jpg），不再有白字' },
     {
         file: 'src/styles/views.css',
         hex: '#e5e5e5',
