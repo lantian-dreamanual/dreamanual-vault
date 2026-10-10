@@ -1,6 +1,6 @@
 [package]
 name = "dreamanual-vault"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 description = "Dreamanual 密码管理 · macOS 桌面密码管理器"
 rust-version = "1.86"
