@@ -16,6 +16,11 @@
 //! CSP 管的是「WebView 自己能往哪发请求」，白名单管的是「能把用户带到哪」。
 //! 少任何一道，前端一旦被注入就是一个任意跳板 —— 一个能打开任意 URL 的
 //! 密码管理器，可以被拿去拼 `file://` 或某个自定义协议。
+//!
+//! 例外是条目网址（`open_entry_url`）：用户存的网址是任意站（官网、内网
+//! 服务、裸域 IP），域名白名单天然不适用。校验换成「仅限 http/https 协议」
+//! —— 跳板攻击真正依赖的 `file://`、`javascript:` 与自定义协议依然全部
+//! 挡在宿主这一侧，威胁模型没有被扩大。
 
 use tauri_plugin_opener::OpenerExt;
 
@@ -49,9 +54,32 @@ pub fn open_external(app: tauri::AppHandle, url: String) -> Result<(), String> {
         .map_err(|err| format!("打开链接失败：{err}"))
 }
 
+/// 条目网址是否放行：仅限 http/https 协议。
+///
+/// 判定用小写比较（用户存 `HTTPS://EXAMPLE.COM` 也该能开）；协议之后的部分
+/// 不做检查 —— 域名是用户自己存的，宿主没有资格替他审。
+fn entry_url_allowed(url: &str) -> bool {
+    let lower = url.to_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+/// 用系统默认浏览器打开一个条目网址。与 `open_external` 的校验口径见模块注释。
+///
+/// 裸域的 `https://` 补全在前端做（`vault.ts`），这一层只做协议终审 ——
+/// 校验留在宿主一侧才有意义：前端可以被注入，Rust 不会。
+#[tauri::command]
+pub fn open_entry_url(app: tauri::AppHandle, url: String) -> Result<(), String> {
+    if !entry_url_allowed(&url) {
+        return Err(format!("不允许打开的地址：{url}"));
+    }
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|err| format!("打开链接失败：{err}"))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::ALLOWED_PREFIXES;
+    use super::{ALLOWED_PREFIXES, entry_url_allowed};
 
     fn allowed(url: &str) -> bool {
         ALLOWED_PREFIXES.iter().any(|p| url.starts_with(p))
@@ -77,5 +105,25 @@ mod tests {
         assert!(!allowed("file:///etc/passwd"));
         assert!(!allowed("javascript:alert(1)"));
         assert!(!allowed(""));
+    }
+
+    #[test]
+    fn entry_url_accepts_http_and_https() {
+        assert!(entry_url_allowed("https://example.com/login"));
+        assert!(entry_url_allowed("http://192.0.2.1:8080/admin"));
+        // 大写协议：用户手存的值不因为大小写被拒
+        assert!(entry_url_allowed("HTTPS://EXAMPLE.COM"));
+    }
+
+    #[test]
+    fn entry_url_rejects_everything_else() {
+        // 跳板攻击真正依赖的入口，一个都不能过
+        assert!(!entry_url_allowed("file:///etc/passwd"));
+        assert!(!entry_url_allowed("javascript:alert(1)"));
+        assert!(!entry_url_allowed("ftp://example.com/pub"));
+        assert!(!entry_url_allowed("ssh://git@example.com/repo"));
+        assert!(!entry_url_allowed(""));
+        assert!(!entry_url_allowed("example.com")); // 裸域由前端补协议后再来
+        assert!(!entry_url_allowed("https:example.com")); // 缺 //
     }
 }

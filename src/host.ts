@@ -571,6 +571,16 @@ export async function openExternal(url: string): Promise<void> {
     await invoke('open_external', { url });
 }
 
+/** 用系统浏览器打开条目网址。
+ *
+ *  与 `openExternal` 的差别在校验口径：条目网址是用户自己存的任意站，
+ *  域名白名单天然不适用，走的是 Rust 侧 `open_entry_url` 的「仅限
+ *  http/https 协议」终审。裸域补协议在前端调这里之前完成。 */
+export async function openEntryUrl(url: string): Promise<void> {
+    requireHost('打开网址');
+    await invoke('open_entry_url', { url });
+}
+
 // ------------------------------------------------------------------ base64
 
 function b64ToBytes(base64: string): ArrayBuffer {

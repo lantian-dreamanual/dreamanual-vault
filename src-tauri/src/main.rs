@@ -141,7 +141,8 @@ fn main() {
             clipboard::clipboard_clear_now,
             clipboard::clipboard_status,
             update::app_version,
-            update::open_external
+            update::open_external,
+            update::open_entry_url
         ])
         .manage(lock::AutoLock::new())
         .manage(clipboard::Clipboard::new())

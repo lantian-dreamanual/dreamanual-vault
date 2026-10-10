@@ -15,11 +15,12 @@ import {
     entrySubtitle,
     groupColor,
     matches,
+    normalizeEntryUrl,
     UNCATEGORIZED,
     type VaultEntry
 } from '../vault/model';
 import type { VaultStore } from '../vault/store';
-import { clipboardArm, reportError } from '../host';
+import { clipboardArm, openEntryUrl, reportError } from '../host';
 import { escapeHtml, highlight, isComposing, must, toast } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { contextMenu, type MenuItem } from '../ui/menu';
@@ -256,16 +257,22 @@ export class VaultView {
 
         // 可复制的行带 `data-field` 且可聚焦 —— ⌘C「复制当前字段」要有「当前」这个概念，
         // 判据就是焦点（点击或 Tab 落到哪一行）。没有值的行不参与，因为没什么可复制。
-        const rowValue = (key: string, value: string, opts: { mono?: boolean } = {}): string => {
+        const rowValue = (key: string, value: string, opts: { mono?: boolean; openable?: boolean } = {}): string => {
             if (!value.trim()) {
                 return `<div class="row"><div class="row-k">${key}</div><div class="row-v muted">未填写</div></div>`;
             }
             const cls = opts.mono ? 'row-v' : 'row-v plain';
+            // openable：网址行独有 —— 在复制旁加一个「默认浏览器打开」。
+            // 原始存值整个挂 data-open，协议补全在 openUrl() 里做，
+            // 与 data-copy 同一套「值跟按钮走」的模式。
+            const openBtn = opts.openable
+                ? `<button class="icon-btn" data-open="${escapeAttr(value)}" title="在浏览器打开">${icons.external()}</button>`
+                : '';
             return (
                 `<div class="row is-copyable" tabindex="0" data-field="${key}">` +
                 `<div class="row-k">${key}</div>` +
                 `<div class="${cls}">${highlight(value, this.query)}</div>` +
-                `<div class="row-acts"><button class="icon-btn" data-copy="${escapeAttr(value)}" title="复制">${icons.copy()}</button></div>` +
+                `<div class="row-acts">${openBtn}<button class="icon-btn" data-copy="${escapeAttr(value)}" title="复制">${icons.copy()}</button></div>` +
                 `</div>`
             );
         };
@@ -298,7 +305,7 @@ export class VaultView {
             `<button class="icon-btn" data-copy="${escapeAttr(entry.password)}" title="复制${FIELD_PASSWORD}">${icons.copy()}</button>` +
             `<button class="icon-btn" data-act="generate" title="生成新密码">${icons.refresh()}</button>` +
             `</div></div>` +
-            rowValue(FIELD_URL, entry.url, { mono: true }) +
+            rowValue(FIELD_URL, entry.url, { mono: true, openable: true }) +
             `<div class="block"><div class="block-k">备注</div>` +
             `<div class="block-v">${entry.notes.trim() ? highlight(entry.notes, this.query) : '<span class="muted">未填写</span>'}</div>` +
             `</div></div>`;
@@ -422,6 +429,12 @@ export class VaultView {
             const copyValue = btn.dataset.copy;
             if (copyValue !== undefined) {
                 void this.copy(copyValue);
+                return;
+            }
+
+            const openValue = btn.dataset.open;
+            if (openValue !== undefined) {
+                void this.openUrl(openValue);
                 return;
             }
 
@@ -560,6 +573,19 @@ export class VaultView {
         } catch (err) {
             reportError(`剪贴板计时未启动：${String(err)}`);
             toast('已复制', 'ok');
+        }
+    }
+
+    /** 在默认浏览器打开网址行的存值。
+     *
+     *  协议补全在 `normalizeEntryUrl()`（model.ts，纯函数 —— 验收直接调它，
+     *  不真开浏览器）；这一层只负责调宿主与失败提示。 */
+    private async openUrl(raw: string): Promise<void> {
+        const url = normalizeEntryUrl(raw);
+        try {
+            await openEntryUrl(url);
+        } catch (err) {
+            toast(`打开失败：${err instanceof Error ? err.message : String(err)}`, 'err');
         }
     }
 

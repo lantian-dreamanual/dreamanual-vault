@@ -34,7 +34,7 @@ import {
     vaultRead,
     vaultVersions
 } from '../host';
-import { DOT_COLORS, groupColor, isDotColor, matches } from '../vault/model';
+import { DOT_COLORS, groupColor, isDotColor, matches, normalizeEntryUrl } from '../vault/model';
 import { closeContextMenu } from '../ui/menu';
 import { isNewer } from '../ui/update';
 import { KDF_PRESETS, type PresetName } from '../vault/kdf';
@@ -1639,6 +1639,43 @@ export async function runAcceptance(
                 guarding
                     ? `接管=${ev2.defaultPrevented}（应为 false）`
                     : '造不出选区，这条没有判别力'
+            );
+
+            // E6/E7：网址行的「在浏览器打开」。**不真开** —— 真调一次
+            // `open_entry_url` 会往验收者的桌面弹一个浏览器窗口，所以这里
+            // 只验两层不落地的部分：E6 验 DOM 接线（按钮在、值与行一致、
+            // 委托分支存在），E7 验协议补全的纯函数。「Rust 侧仅放行
+            // http/https」由 `update.rs` 的单元测试守（entry_url_* 两条），
+            // 三层合起来才是完整链路。
+            await mark('E6/E7 网址行打开按钮（不真开）');
+            const openBtn = document.querySelector<HTMLElement>(
+                `#detail .row[data-field="${FIELD_URL}"] [data-open]`
+            );
+            const openVal = openBtn?.dataset.open ?? null;
+            const copyVal = document.querySelector<HTMLElement>(
+                `#detail .row[data-field="${FIELD_URL}"] [data-copy]`
+            )?.dataset.copy ?? null;
+            check(
+                'E6',
+                '网址行有「在浏览器打开」按钮，值与行内存值一致',
+                openBtn !== null && openVal !== null && openVal === copyVal && openVal.trim() !== '',
+                openBtn === null
+                    ? '按钮不在'
+                    : `data-open=${openVal === null ? '缺' : openVal} · data-copy=${copyVal === null ? '缺' : copyVal}`
+            );
+            const norm: Array<[string, string]> = [
+                ['vpn.example.com', 'https://vpn.example.com'],
+                ['192.0.2.11', 'https://192.0.2.11'],
+                ['  example.com  ', 'https://example.com'],
+                ['http://insecure.example/', 'http://insecure.example/'],
+                ['HTTPS://UPPER.EXAMPLE', 'HTTPS://UPPER.EXAMPLE']
+            ];
+            const normBad = norm.filter(([raw, want]) => normalizeEntryUrl(raw) !== want);
+            check(
+                'E7',
+                '协议补全：裸域补 https，写了协议的原样（ftp 等原样上交 Rust 拒绝）',
+                normBad.length === 0,
+                normBad.length === 0 ? `${norm.length} 例全对` : `错例：${normBad.map(([r]) => r).join('、')}`
             );
 
             // -------------------------------------------------------- F 掩码切换动效（F4.2）

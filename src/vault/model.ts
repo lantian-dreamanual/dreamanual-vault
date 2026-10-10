@@ -35,6 +35,17 @@ export function entrySubtitle(entry: VaultEntry): string {
     return firstLine ? firstLine.trim() : '';
 }
 
+/** 把条目网址的存值整理成可打开的 URL。
+ *
+ *  裸域是常态（`vpn.example.com`、内网 IP），没写协议的一律补 `https://`；
+ *  显式写了任意协议的尊重原样 —— 存 `ftp://…` 的条目原样交给 Rust 终审，
+ *  在那里被拒并给用户一条失败提示，而不是在界面里被悄悄改写成 https。
+ *  纯函数：验收里直接调它，不触发真实打开。 */
+export function normalizeEntryUrl(raw: string): string {
+    const value = raw.trim();
+    return /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`;
+}
+
 /** 头像块里的字符：取标题首字母，中文取第一个字 */
 export function entryInitial(entry: VaultEntry): string {
     const t = entry.title.trim();
