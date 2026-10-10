@@ -23,10 +23,6 @@ import { VaultFormatError, WrongPasswordError } from '../vault/session';
 import { samePath, type VaultStore } from '../vault/store';
 import { passwordScore, weaknessOf } from '../ui/password';
 
-/** CapsLock 按住多久才算「开关大写锁定」：mac 短按是输入法中英切换
- *  （点按通常 <150ms），长按（约 0.5s 起）才是开锁定手势。取 300ms 居中。 */
-const CAPS_HOLD_MS = 300;
-
 function errorText(err: unknown): string {
     if (err instanceof WrongPasswordError) return '主密码不正确';
     if (err instanceof VaultFormatError) return err.message;
@@ -37,10 +33,6 @@ export class UnlockView {
     // 解锁卡片
     private cardOpen = must('#lock-card');
     private openPw = must<HTMLInputElement>('#lock-pw');
-    /** 大写锁定最近一次键盘事件读到的状态；focus 恢复显形靠它（见 wireCapsHint） */
-    private capsOn = false;
-    /** CapsLock 键按下时刻，量长按用（0 = 没在按着） */
-    private capsDownAt = 0;
     private openBtn = must<HTMLButtonElement>('#lock-submit');
     private openMsg = must('#lock-msg');
     private openBar = must('#lock-bar');
@@ -116,49 +108,6 @@ export class UnlockView {
             if (this.hasVault) this.showCreate(false);
             else void this.pickOther();
         });
-        this.wireCapsHint();
-    }
-
-    /** 大写锁定指示器：a-arrow-up 画在输入框内右侧（CSS），这里只管显隐。
-     *
-     *  mac 的两个坑（2026-10-10 用户反馈定案）：
-     *  ① CapsLock 键自己的事件不可信 —— 短按是输入法中英切换（系统级行为，
-     *     大写锁定根本没开），长按才是开关锁定；WebKit 对两种情形都派发
-     *     keydown/keyup，getModifierState 在其间会瞬时读真，短按就被当成了
-     *     「开启」，指示器闪一下。所以这把键的事件只用来**量时长**：按住
-     *     ≥ 300ms（长按，mac 的开锁定手势）才把状态翻转，短按整对事件忽略。
-     *  ② 真实状态永远以普通按键的 getModifierState 为准刷新 —— 翻转方向就算
-     *     猜错，下一次按键立即自校正。
-     *  另：键盘焦点进来时一个键都没按过、读不到修饰键状态，所以状态要记着，
-     *  focus 按 capsOn 恢复显形；显隐同时要求聚焦，指示器钉在输入框里，
-     *  失焦后没有意义。 */
-    private wireCapsHint(): void {
-        const hint = must('#lock-caps');
-        const sync = (): void => {
-            hint.hidden = !(this.capsOn && document.activeElement === this.openPw);
-        };
-        this.openPw.addEventListener('keydown', (ev) => {
-            if (ev.key === 'CapsLock') {
-                this.capsDownAt = Date.now(); // 只记时刻，状态等 keyup 量完时长再说
-            } else {
-                this.capsOn = ev.getModifierState('CapsLock');
-            }
-            sync();
-        });
-        this.openPw.addEventListener('keyup', (ev) => {
-            if (ev.key === 'CapsLock') {
-                // 按住 ≥ 阈值才算切换大写锁定（mac 的约定：短按切输入法）。
-                // 方向按物理行为翻转；对错由下一次普通按键的修饰键状态自校正。
-                const held = this.capsDownAt > 0 ? Date.now() - this.capsDownAt : 0;
-                this.capsDownAt = 0;
-                if (held >= CAPS_HOLD_MS) this.capsOn = !this.capsOn;
-            } else {
-                this.capsOn = ev.getModifierState('CapsLock');
-            }
-            sync();
-        });
-        this.openPw.addEventListener('focus', sync);
-        this.openPw.addEventListener('blur', sync);
     }
 
     // ---------------------------------------------------------------- 换库菜单

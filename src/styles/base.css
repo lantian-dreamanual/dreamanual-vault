@@ -165,8 +165,6 @@ svg {
     flex-direction: column;
     gap: var(--sp-6);
     margin-bottom: var(--sp-14);
-    /* .caps-hint（大写锁定指示器）以本容器定位，钉在输入框内右侧 */
-    position: relative;
 }
 
 .field > label,
@@ -213,28 +211,13 @@ svg {
    直接画在 type="password" 输入框上，::-webkit-caps-lock-indicator 那套隐藏
    只在 Blink（Chrome）里有效，真机测试原样画了出来 —— 按原生尺寸嵌进自定义
    高的输入框，被衬成一根拉长的胶囊。根治 = 所有掩码输入框一律 type="text" +
-   这个类（-webkit-text-security），指示器随之失去挂点；「大写锁定开着」的
-   语义由解锁卡自绘 .caps-hint 接管（unlock.ts 读 getModifierState），眼睛的
-   明文切换也改成摘 / 戴这个类（editor.ts / confirm.ts）。 */
+   这个类（-webkit-text-security），指示器随之失去挂点；眼睛的明文切换也改成
+   摘 / 戴这个类（editor.ts / confirm.ts）。
+   自绘大写锁定提示同日试了四稿（提示行 / 框内图标 / 按住时长分辨）全部不成立
+   —— mac 短按 CapsLock 是输入法中英切换、修饰键状态又无从查询 —— 定案撤掉，
+   交给 macOS 系统的光标处提示。 */
 .pw-mask {
     -webkit-text-security: disc;
-}
-
-/* 大写锁定指示器：Lucide a-arrow-up 画在输入框内右侧。绝对定位 ——
-   上一版是文档流里的提示行，出现时把解锁卡撑高一行（2026-10-10 用户反馈）。
-   琥珀字不算错误，只是「输的可能不是你想输的」；图标与字同色（Toast 同一判断）。 */
-.caps-hint {
-    position: absolute;
-    right: var(--sp-12);
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--warn-ink);
-    pointer-events: none;
-}
-
-/* 图标宽 15 + 右边距 12 + 一点余量：掩码圆点别顶到图标底下。 */
-#lock-pw {
-    padding-right: 36px;
 }
 
 /* 卡片（.modal / .lock-card / .srow，均已抬到 panel-2）里的输入件跟着抬一档
