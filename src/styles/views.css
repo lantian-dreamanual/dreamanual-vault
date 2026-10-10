@@ -982,7 +982,9 @@ mark {
 
 select.srow-ctl {
     height: var(--ctl-32);
-    font-size: var(--fs-12);
+    /* 字号不再另压 12：设置行内嵌控件统一取字 13（2026-10-10 方案 A），
+       与同行的 ghost 按钮同档 —— 第七节「一行里并排的输入框与按钮必须同档」。 */
+    font-size: var(--fs-13);
 }
 
 .srow-num {
@@ -990,6 +992,13 @@ select.srow-ctl {
     min-width: 0;
     height: var(--ctl-32);
     text-align: center;
+}
+
+/* 行内 ghost 按钮收进标准档 32（2026-10-10 方案 A）：原先继承 .btn 的 38，
+   与同行 32 的 select / 数字框混档，KDF 行最明显。横内边距随档收 12。 */
+.btn.srow-ctl {
+    height: var(--ctl-32);
+    padding: 0 var(--sp-12);
 }
 
 /* 「请我喝杯咖啡」整行是按钮。外层仍是 `.srow`，好接着享受上面那套

@@ -108,6 +108,20 @@ export class UnlockView {
             if (this.hasVault) this.showCreate(false);
             else void this.pickOther();
         });
+        this.wireCapsHint();
+    }
+
+    /** 大写锁定提示：原生 ⇪ 指示器已由 CSS 退役（被自定义高的输入框衬成拉长
+     *  胶囊，2026-10-10），这里读事件自带的修饰键状态自绘。焦点进来时键盘
+     *  还没动过、读不到状态，所以只在 keydown / keyup 上判，失焦即收。 */
+    private wireCapsHint(): void {
+        const hint = must('#lock-caps');
+        const update = (ev: Event): void => {
+            hint.hidden = !(ev instanceof KeyboardEvent && ev.getModifierState('CapsLock'));
+        };
+        this.openPw.addEventListener('keydown', update);
+        this.openPw.addEventListener('keyup', update);
+        this.openPw.addEventListener('blur', () => { hint.hidden = true; });
     }
 
     // ---------------------------------------------------------------- 换库菜单

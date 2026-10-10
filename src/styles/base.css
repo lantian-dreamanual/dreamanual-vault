@@ -207,6 +207,29 @@ svg {
     border-color: var(--accent-2);
 }
 
+/* 原生大写锁定指示器退役（2026-10-10）：WKWebView 按原生尺寸画 ⇪，嵌进
+   自定义高的输入框里被衬成一根拉长的胶囊，用户当成了不认识的图标。语义
+   由解锁卡的自绘 .caps-hint 接管（unlock.ts 读 getModifierState），形态归令牌管。 */
+input[type="password"]::-webkit-caps-lock-indicator {
+    -webkit-appearance: none;
+    display: none;
+}
+
+/* 大写锁定提示：琥珀字不算错误，只是「输的可能不是你想输的」；
+   图标与字同色（Toast 同一判断）。 */
+.caps-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-6);
+    margin-top: var(--sp-6);
+    font-size: var(--fs-12);
+    color: var(--warn-ink);
+}
+
+.caps-hint[hidden] {
+    display: none;
+}
+
 /* 卡片（.modal / .lock-card / .srow，均已抬到 panel-2）里的输入件跟着抬一档
    —— 设计系统「输入框底色」的另一半规则：落在卡片里用 panel-3。落在主内容
    区（panel）上的 .inp 保持 panel-2，不受这条影响。 */
