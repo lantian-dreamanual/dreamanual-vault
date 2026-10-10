@@ -207,12 +207,15 @@ svg {
     border-color: var(--accent-2);
 }
 
-/* 原生大写锁定指示器退役（2026-10-10）：WKWebView 按原生尺寸画 ⇪，嵌进
-   自定义高的输入框里被衬成一根拉长的胶囊，用户当成了不认识的图标。语义
-   由解锁卡的自绘 .caps-hint 接管（unlock.ts 读 getModifierState），形态归令牌管。 */
-input[type="password"]::-webkit-caps-lock-indicator {
-    -webkit-appearance: none;
-    display: none;
+/* 掩码输入统一走 CSS（2026-10-10）：WKWebView 的原生大写锁定指示器由系统
+   直接画在 type="password" 输入框上，::-webkit-caps-lock-indicator 那套隐藏
+   只在 Blink（Chrome）里有效，真机测试原样画了出来 —— 按原生尺寸嵌进自定义
+   高的输入框，被衬成一根拉长的胶囊。根治 = 所有掩码输入框一律 type="text" +
+   这个类（-webkit-text-security），指示器随之失去挂点；「大写锁定开着」的
+   语义由解锁卡自绘 .caps-hint 接管（unlock.ts 读 getModifierState），眼睛的
+   明文切换也改成摘 / 戴这个类（editor.ts / confirm.ts）。 */
+.pw-mask {
+    -webkit-text-security: disc;
 }
 
 /* 大写锁定提示：琥珀字不算错误，只是「输的可能不是你想输的」；

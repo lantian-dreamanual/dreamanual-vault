@@ -99,13 +99,15 @@ export class EntryEditor {
         });
 
         must('#f-pw-reveal').addEventListener('click', () => {
-            this.inPw.type = this.inPw.type === 'password' ? 'text' : 'password';
+            // 掩码走 .pw-mask（-webkit-text-security），不走 type 切换 ——
+            // 原生 Caps Lock 指示器只挂在 type="password" 上（base.css 有全案）。
+            this.inPw.classList.toggle('pw-mask');
             this.replaySwap();
         });
 
         must('#f-pw-gen').addEventListener('click', () => {
             this.inPw.value = randomPassword(20);
-            this.inPw.type = 'text';
+            this.inPw.classList.remove('pw-mask'); // 随机生成的直接亮出来
             this.replaySwap();
             this.updateMeter();
         });
@@ -200,7 +202,7 @@ export class EntryEditor {
     }
 
     /**
-     * 眼睛图标跟着输入框的 `type` 走。
+     * 眼睛图标跟着输入框的掩码状态走（戴着 .pw-mask = 掩码 = 睁眼）。
      *
      * 详情栏那一处本来就会换图标（`vault.ts` 的 `eye` / `eyeOff`），弹窗这里原先
      * 是一段静态 svg —— 两处同一个语义的开关长得不一样，掩码状态在弹窗里只能从
@@ -210,7 +212,7 @@ export class EntryEditor {
     private syncRevealIcon(): void {
         // 换 svg 前先摘掉 `is-pop`：新节点插入时父级若还戴着这个类，动画会立刻播一遍。
         this.revealBtn.classList.remove('is-pop');
-        this.revealBtn.innerHTML = this.inPw.type === 'text' ? icons.eyeOff(15) : icons.eye(15);
+        this.revealBtn.innerHTML = this.inPw.classList.contains('pw-mask') ? icons.eye(15) : icons.eyeOff(15);
     }
 
     /** 摘掉 → 强制重排 → 戴上。重复调用能重播动画。 */
@@ -233,7 +235,7 @@ export class EntryEditor {
         this.renderCatOptions(this.host.defaultGroup());
         this.inUser.value = '';
         this.inPw.value = '';
-        this.inPw.type = 'password';
+        this.inPw.classList.add('pw-mask');
         this.syncRevealIcon();
         this.inUrl.value = '';
         this.inNotes.value = '';
@@ -253,7 +255,7 @@ export class EntryEditor {
         this.renderCatOptions(entry.group);
         this.inUser.value = entry.userName;
         this.inPw.value = entry.password;
-        this.inPw.type = 'password';
+        this.inPw.classList.add('pw-mask');
         this.syncRevealIcon();
         this.inUrl.value = entry.url;
         this.inNotes.value = entry.notes;

@@ -203,8 +203,9 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
                     `<div class="field">` +
                     `<label for="secret-${escapeHtml(f.id)}">${escapeHtml(f.label)}</label>` +
                     `<div class="pw-wrap is-single">` +
-                    `<input class="inp" type="password" id="secret-${escapeHtml(f.id)}" ` +
-                    `data-field="${escapeHtml(f.id)}" autocomplete="off" spellcheck="false" ` +
+                    `<input class="inp pw-mask" type="text" id="secret-${escapeHtml(f.id)}" ` +
+                    `data-field="${escapeHtml(f.id)}" autocomplete="off" autocapitalize="off" ` +
+                    `autocorrect="off" spellcheck="false" ` +
                     `placeholder="${escapeHtml(f.placeholder ?? '')}">` +
                     `<div class="pw-tools">` +
                     `<button class="icon-btn" data-eye="${escapeHtml(f.id)}" title="显示 / 隐藏">` +
@@ -286,8 +287,9 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
         for (const btn of Array.from(mask.querySelectorAll<HTMLElement>('[data-eye]'))) {
             const input = mask.querySelector<HTMLInputElement>(`input[data-field="${btn.dataset.eye}"]`)!;
             btn.addEventListener('click', () => {
-                const shown = input.type === 'text';
-                input.type = shown ? 'password' : 'text';
+                // 掩码走 .pw-mask 类（不切 type，原生 Caps Lock 指示器只挂密码框）。
+                const shown = !input.classList.contains('pw-mask');
+                input.classList.toggle('pw-mask', shown);
                 btn.innerHTML = shown ? icons.eye() : icons.eyeOff();
 
                 btn.classList.remove('is-pop');

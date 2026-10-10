@@ -1776,7 +1776,10 @@ export async function runAcceptance(
                 } else {
                     // 对照：刚打开时必须是掩码、图标是「睁眼」。没有这一条，
                     // F3 在一个「打开就已经是明文」的实现上也会绿。
-                    const idle = pw0.type === 'password' && refOf(eye0) === EYE_OPEN;
+                    // 掩码判据是 .pw-mask 类（type 已全部改成 text，见 base.css）。
+                    const maskedOf = (el: HTMLInputElement | null): boolean =>
+                        el?.classList.contains('pw-mask') === true;
+                    const idle = maskedOf(pw0) && refOf(eye0) === EYE_OPEN;
 
                     eyeEl()?.click();
                     await sleep(60);
@@ -1789,12 +1792,12 @@ export async function runAcceptance(
                         'F3',
                         '编辑弹窗的眼睛切换到明文，图标换掉并带 .is-swap / .is-pop',
                         idle &&
-                            pw1?.type === 'text' &&
+                            !maskedOf(pw1) &&
                             refOf(eye1) === EYE_CLOSED &&
                             inputAnim === 'pw-swap' &&
                             eyeAnim === 'eye-pop' &&
                             kfWorks,
-                        `开弹窗时是掩码=${idle} · type=${pw1?.type} · ` +
+                        `开弹窗时是掩码=${idle} · 掩码=${pw1 ? maskedOf(pw1) : '无'} · ` +
                             `图标=${refOf(eye1) === EYE_CLOSED ? '闭眼' : '睁眼'} · ` +
                             `输入框动画=${inputAnim} · 图标动画=${eyeAnim} · 关键帧探针=${kfWorks}`
                     );
@@ -1810,10 +1813,10 @@ export async function runAcceptance(
                     check(
                         'F4',
                         '重开弹窗时掩码状态与图标一起复位，且不补播动画',
-                        pw2?.type === 'password' &&
+                        maskedOf(pw2) &&
                             refOf(eye2) === EYE_OPEN &&
                             !(eye2?.classList.contains('is-pop') ?? true),
-                        `type=${pw2?.type} · 图标=${refOf(eye2) === EYE_CLOSED ? '闭眼' : '睁眼'} · ` +
+                        `掩码=${pw2 ? maskedOf(pw2) : '无'} · 图标=${refOf(eye2) === EYE_CLOSED ? '闭眼' : '睁眼'} · ` +
                             `带 is-pop=${eye2?.classList.contains('is-pop')}`
                     );
 

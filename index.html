@@ -93,7 +93,12 @@
          标签是把同一句话写第二遍。无障碍名走 aria-label，读屏仍能念出字段。
          原先这一段距离由标题下的小字提供，现在归 h1 的 margin-bottom。 -->
     <div class="field">
-      <input class="inp" type="password" id="lock-pw" placeholder="输入主密码" aria-label="主密码" autocomplete="off" spellcheck="false">
+      <!-- type="text" + .pw-mask 而不是 type="password"：WKWebView 的原生
+           大写锁定指示器由系统直接画在密码框上（CSS 伪元素隐藏只在 Chrome
+           里有效，真机原样画出一根拉长的 ⇪，2026-10-10）。改成文本框后指示器
+           失去挂点；掩码由 .pw-mask（-webkit-text-security）接管，「大写锁定
+           开着」的语义由下面这行自绘提示接管。 -->
+      <input class="inp pw-mask" type="text" id="lock-pw" placeholder="输入主密码" aria-label="主密码" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
       <!-- 大写锁定提示：原生的 ⇪ 指示器被输入框的自定义高度衬成一根拉长的
            胶囊（2026-10-10 用户反馈），CSS 退役后由 unlock.ts 按
            getModifierState('CapsLock') 接管 —— 只在真开着时出现。 -->
@@ -141,11 +146,11 @@
       <div class="pw-grid">
         <div class="pw-col">
           <label for="new-pw">主密码<span class="req" aria-hidden="true">*</span></label>
-          <input class="inp" type="password" id="new-pw" placeholder="建议 12 位以上" aria-required="true" autocomplete="off" spellcheck="false">
+          <input class="inp pw-mask" type="text" id="new-pw" placeholder="建议 12 位以上" aria-required="true" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
         </div>
         <div class="pw-col">
           <label for="new-pw2">再输一遍<span class="req" aria-hidden="true">*</span></label>
-          <input class="inp" type="password" id="new-pw2" aria-required="true" autocomplete="off" spellcheck="false">
+          <input class="inp pw-mask" type="text" id="new-pw2" aria-required="true" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
         </div>
       </div>
       <div class="meter" id="new-pw-meter"><i></i></div>
@@ -423,7 +428,7 @@
              留空只会得到一条没密码的条目。改成如实的后果说明。 -->
         <label for="f-pw">密码 / 密钥</label>
         <div class="pw-wrap">
-          <input class="inp" type="password" id="f-pw" placeholder="留空则不记录" autocomplete="off" spellcheck="false">
+          <input class="inp pw-mask" type="text" id="f-pw" placeholder="留空则不记录" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
           <div class="pw-tools">
             <button class="icon-btn" id="f-pw-reveal" title="显示 / 隐藏">
               <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-eye"/></svg>
