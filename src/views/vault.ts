@@ -24,7 +24,6 @@ import { clipboardArm, openEntryUrl, reportError } from '../host';
 import { escapeHtml, highlight, isComposing, must, toast } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { contextMenu, type MenuItem } from '../ui/menu';
-import { randomPassword } from '../ui/password';
 
 export const ALL_GROUP = '全部';
 
@@ -297,13 +296,15 @@ export class VaultView {
 
             `<div class="detail-body">` +
             rowValue(FIELD_USER, entry.userName) +
+            // 密码行只有显示/复制两个动作。**不放「生成」**：详情页的每个按钮都是
+            // 即时生效、没有取消，误点一次就把真密码换掉（2026-10-10 用户拍板撤除）。
+            // 生成在编辑器里做 —— 那里点「取消」能整体放弃，误点有兜底。
             `<div class="row is-copyable" tabindex="0" data-field="${FIELD_PASSWORD}">` +
             `<div class="row-k">${FIELD_PASSWORD}</div>` +
             `<div class="row-v${pwClass}${swap}">${highlight(pwText, this.query)}</div>` +
             `<div class="row-acts">` +
             `<button class="icon-btn${eyeCls}" data-act="reveal" title="显示 / 隐藏">${eye}</button>` +
             `<button class="icon-btn" data-copy="${escapeAttr(entry.password)}" title="复制${FIELD_PASSWORD}">${icons.copy()}</button>` +
-            `<button class="icon-btn" data-act="generate" title="生成新密码">${icons.refresh()}</button>` +
             `</div></div>` +
             rowValue(FIELD_URL, entry.url, { mono: true, openable: true }) +
             `<div class="block"><div class="block-k">备注</div>` +
@@ -448,18 +449,6 @@ export class VaultView {
                     this.pwSwap = true;
                     this.renderDetail();
                     break;
-                case 'generate': {
-                    // 生成即落库：这个按钮改的是密码本身，留在内存里等用户再点保存
-                    // 会出现「看起来换了，其实没换」。直接更新并写明已保存。
-                    const next = randomPassword(20);
-                    this.store.updateEntry({ ...entry, password: next });
-                    this.revealed.add(entry.id);
-                    // 生成即切到明文，值也变了 —— 同一段「落定」动效，别让它硬跳
-                    this.pwSwap = true;
-                    this.renderAll();
-                    toast('已生成新密码并保存', 'ok');
-                    break;
-                }
                 case 'edit':
                     this.hooks.onEditEntry(entry);
                     break;
