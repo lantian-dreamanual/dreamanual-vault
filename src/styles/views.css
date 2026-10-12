@@ -1146,7 +1146,7 @@ select.srow-ctl {
     height: 20px;
     border-radius: 50%;
     background: #fff;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-knob);
     transition: var(--mo-fast);
 }
 
@@ -1156,9 +1156,12 @@ select.srow-ctl {
    按钮、开关、计数徽章都是它上面压着东西的底，取档看压的东西要多少对比度。
    `--accent` 只管文字、图标、描边，以及自身就是图形的填充（强度条、扫描条）。
 
-   开关滑块是图形，按非文本 3:1 判：压实心档 5.17:1，压 `--accent` 只有 3.68:1。
+   开关滑块是图形，按非文本 3:1 判：压实心档 5.25:1，压 `--accent` 只有 3.68:1。
    绿色是例外 —— `emerald-500` 压白滑块只有 2.54:1，取不到 3:1，所以音频转换
    将来接入时开关只能跟按钮同取实心档（emerald-700）。
+
+   滑块**两态都白**（2026-10-12 四端统一），并带一档贴地投影 `--shadow-knob`
+   —— 白滑块压在亮色轨道上时靠它托出轮廓（投资监控的亮黄轨道压白只有 1.91:1）。
 
    读数由 spike/contrast.mjs 守着，改这里要重跑它。 */
 .switch input:checked + i {
