@@ -49,6 +49,9 @@ function errorText(err: unknown): string {
     return err instanceof Error ? err.message : String(err);
 }
 
+/** 官网上的应用页（works 下单独一页）。发版与文案改动只改页面，不动客户端。 */
+const SITE_URL = 'https://dreamanual.com/works/vault.html';
+
 export class SettingsView {
     private openOtherBtn = must<HTMLButtonElement>('#set-open-other');
     private revealBtn = must<HTMLButtonElement>('#set-reveal');
@@ -81,6 +84,10 @@ export class SettingsView {
     private updateStateEl = must('#set-update-state');
     private checkUpdateBtn = must<HTMLButtonElement>('#set-check-update');
     private donateBtn = must<HTMLButtonElement>('#set-donate');
+
+    /** 「官网」行：应用自己在官网上的页面（works 下单独一页），不指主站首页 ——
+     *  首页是作品集，指着它等于让用户自己再找一遍。与 NAS / 投资监控同一取法。 */
+    private siteBtn = must<HTMLButtonElement>('#set-site');
 
     /** 当前版本号，从宿主读一次就存着。它是二进制的属性，运行期间不会变。 */
     private currentVersion = '';
@@ -147,6 +154,7 @@ export class SettingsView {
     private wireAbout(): void {
         this.checkUpdateBtn.addEventListener('click', () => void this.checkForUpdate());
         this.donateBtn.addEventListener('click', () => void this.openUrl(DONATE_URL));
+        this.siteBtn.addEventListener('click', () => void this.openUrl(SITE_URL));
     }
 
     /** 「检查更新」。

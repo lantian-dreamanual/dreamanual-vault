@@ -229,13 +229,19 @@ svg {
     background: var(--panel-3);
 }
 
-/* 同理，卡片里的次级按钮抬一档：按钮底与卡片底同为 panel-2 时只剩边框可辨。
-   抬到 panel-3 后，全局 .btn-gho:hover 的底色规则（panel-3）在这里落到同一
-   档 —— 悬停的底反馈由字色（ink-2 → ink）承担。 */
+/* 卡片里的次级按钮分两档（2026-10-17，与 NAS / 投资监控 / 视频下载同批）：
+   弹窗与解锁卡取实底抬档（panel-3）—— 那两处与输入框不同行，抬档即够；
+   设置行（.srow）取**描边**：行内的输入件已经是 panel-3 实底，按钮也做实底
+   就与输入框同壳，只差 4px 高与 1 号字。实底＝可输入、描边＝可点，悬停才填底
+   （全局 .btn-gho:hover 的 panel-3 + ink 正好落在描边档上）。 */
 .modal .btn-gho,
-.lock-card .btn-gho,
-.srow .btn-gho {
+.lock-card .btn-gho {
     background: var(--panel-3);
+}
+
+.srow .btn-gho {
+    background: transparent;
+    border-color: var(--line-2);
 }
 
 textarea.inp {
