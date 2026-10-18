@@ -13,9 +13,17 @@
  * 「新建库用哪一档」，换档之后两者会分叉，显示配置值等于告诉用户「没换成」。 */
 
 import { confirmDialog, promptDialog, secretDialog } from '../ui/confirm';
-import { must, toast } from '../ui/dom';
-import { exportFileName, formatSize, friendlyTime, shortPath, vaultDisplayName } from '../ui/format';
-import { contextMenu, type MenuItem } from '../ui/menu';
+import { escapeHtml, must, toast } from '../ui/dom';
+import {
+    exportFileName,
+    formatSize,
+    friendlyTime,
+    pathParts,
+    shortPath,
+    vaultDisplayName
+} from '../ui/format';
+import { contextMenu } from '../ui/menu';
+import { moveVaultDialog } from '../ui/move-dialog';
 import { weaknessOf } from '../ui/password';
 import { DONATE_URL, checkUpdate, type CheckState } from '../ui/update';
 import {
@@ -32,10 +40,11 @@ import {
     revealInFinder,
     settingsGet,
     settingsUpdate,
+    vaultVersions,
     type AppConfig,
     type BackupStatus
 } from '../host';
-import { DEFAULT_PRESET, KDF_PRESETS, type PresetName } from '../vault/kdf';
+import { DEFAULT_PRESET, KDF_PRESETS, PRESET_NAMES, type PresetName } from '../vault/kdf';
 import { WrongPasswordError } from '../vault/session';
 import type { VaultStore } from '../vault/store';
 
@@ -55,14 +64,19 @@ const SITE_URL = 'https://dreamanual.com/works/vault.html';
 export class SettingsView {
     private openOtherBtn = must<HTMLButtonElement>('#set-open-other');
     private revealBtn = must<HTMLButtonElement>('#set-reveal');
+    private moveBtn = must<HTMLButtonElement>('#set-move');
+    private moveSubEl = must('#set-move-sub');
     private exportBtn = must<HTMLButtonElement>('#set-export');
     private vaultNameEl = must('#set-vault-name');
     private renameVaultBtn = must<HTMLButtonElement>('#set-rename-vault');
 
     private autoLockEl = must<HTMLSelectElement>('#set-autolock');
     private clipClearEl = must<HTMLSelectElement>('#set-clipclear');
-    private kdfEl = must<HTMLSelectElement>('#set-kdf');
-    private kdfApplyBtn = must<HTMLButtonElement>('#set-kdf-apply');
+    /** 换 KDF 档位只有一颗「更改…」按钮 —— 与「修改主密码」「重命名…」同一形态。
+     *  这一行原先是一个下拉框加一颗「应用」并排，页面上别处没有这种写法，
+     *  看着像个没做完的表单（2026-10-18 用户报）。换档要重建整个库，
+     *  本来就该走「点开弹窗 → 选档 + 验密码 → 确认」这一趟。 */
+    private kdfChangeBtn = must<HTMLButtonElement>('#set-kdf-change');
     private kdfCurrentEl = must('#set-kdf-current');
     private changePwBtn = must<HTMLButtonElement>('#set-change-pw');
 
@@ -78,7 +92,7 @@ export class SettingsView {
     private backupLastEl = must('#set-backup-last');
     private backupPill = must('#set-backup-state');
     private backupNowBtn = must<HTMLButtonElement>('#set-backup-now');
-    private keepEl = must<HTMLInputElement>('#set-keep');
+    private keepEl = must<HTMLSelectElement>('#set-keep');
 
     private versionEl = must('#set-version');
     private updateStateEl = must('#set-update-state');
@@ -125,6 +139,7 @@ export class SettingsView {
         // 库路径与「能不能导出」都跟着会话状态走
         store.subscribe(() => {
             this.renderVaultPath();
+            void this.renderMoveHint();
             this.renderVaultName();
             this.exportBtn.disabled = !store.isOpen();
             this.syncKdf();
@@ -244,7 +259,7 @@ export class SettingsView {
         this.autoLockEl.value = String(cfg.autoLockMinutes);
         this.syncKdf();
         this.backupAutoEl.checked = cfg.backupAuto;
-        this.keepEl.value = String(cfg.keepVersions);
+        this.renderKeep(cfg.keepVersions);
         must<HTMLInputElement>('#set-lockonsleep').checked = cfg.lockOnSleep;
         (must<HTMLSelectElement>('#set-clipclear')).value = String(cfg.clipboardClearSeconds);
 
@@ -273,10 +288,29 @@ export class SettingsView {
         this.autoLockEl.value = String(cfg.autoLockMinutes);
         this.syncKdf();
         this.backupAutoEl.checked = cfg.backupAuto;
-        this.keepEl.value = String(cfg.keepVersions);
+        this.renderKeep(cfg.keepVersions);
         must<HTMLInputElement>('#set-lockonsleep').checked = cfg.lockOnSleep;
         (must<HTMLSelectElement>('#set-clipclear')).value = String(cfg.clipboardClearSeconds);
         void this.refreshBackupView();
+    }
+
+    /** 历史版本上限那一格。
+     *
+     *  预设档是 1/3/5/10/20/50，而磁盘上可能留着旧版数字框写进去的任意值
+     *  （7、33…，Rust 侧只夹到 1–50）。`select.value = '7'` 匹配不到任何一项，
+     *  控件会渲染成空白，看着像读失败。这时补一个「7 份（当前）」临时项兜底；
+     *  用户选了别的预设，下一轮 `refresh()` / `applyConfig()` 会把它撤掉。 */
+    private renderKeep(n: number): void {
+        const value = String(n);
+        this.keepEl.querySelector('option[data-custom]')?.remove();
+        if (!Array.from(this.keepEl.options).some((o) => o.value === value)) {
+            const opt = document.createElement('option');
+            opt.value = value;
+            opt.dataset.custom = '1';
+            opt.textContent = `${value} 份（当前）`;
+            this.keepEl.appendChild(opt);
+        }
+        this.keepEl.value = value;
     }
 
     // ------------------------------------------------------------ 只读展示
@@ -299,18 +333,41 @@ export class SettingsView {
         const el = must('#set-vault-path');
         const status = this.store.status();
 
-        el.textContent = status.path || '—';
-        if (status.exists && status.size > 0) {
-            el.textContent += ` · ${formatSize(status.size)}`;
-        }
+        // 目录压暗、文件名提亮，前面补一个省略号 —— 位置行只回答「这是哪份文件」。
+        // 完整路径进 title：要复制、要核对的时候还得有全文。
+        const parts = pathParts(status.path);
+        const size = status.exists && status.size > 0 ? ` · ${formatSize(status.size)}` : '';
+        el.innerHTML =
+            (parts.clipped ? '<span class="m">…</span>' : '') +
+            (parts.dir ? `<span class="d">/${escapeHtml(parts.dir)}</span>` : '') +
+            `<span class="f">${escapeHtml(parts.file || '—')}</span>` +
+            (size ? `<span class="d">${size}</span>` : '');
         el.title = status.path;
 
         // 「在访达中显示」要有一个真实存在的文件才有目标
         this.revealBtn.disabled = !status.exists || !status.path;
+        // 库文件都还没落盘时没有东西可搬
+        this.moveBtn.disabled = !status.exists || !status.path;
+    }
 
-        // 位置不是默认那个时，按钮文案跟着变 —— 否则「主库位置」这个标题
-        // 下面挂着一个别处的路径，看起来像显示错了
-        this.openOtherBtn.textContent = status.configured ? '更改位置…' : '打开其他库…';
+    /** 「移动库文件」那行的副标题：会一起走几份历史版本。
+     *
+     *  份数**现读磁盘**而不是记在内存里 —— 保存一次就会轮转出一份新的，
+     *  记一份之后它只会越来越旧，而这句话的作用正是「让你知道会搬走什么」。
+     *  读不到就不写这句（空副标题），不要猜一个数。 */
+    private async renderMoveHint(): Promise<void> {
+        const path = this.store.status().path;
+        if (!path || !IN_TAURI) {
+            this.moveSubEl.textContent = '';
+            return;
+        }
+        try {
+            const versions = await vaultVersions(path);
+            this.moveSubEl.textContent =
+                versions.length > 0 ? `同目录的 ${versions.length} 份历史版本一起移动` : '';
+        } catch {
+            this.moveSubEl.textContent = '';
+        }
     }
 
     /** 库文件在 `~/Library/Application Support/` 下，而 Finder 默认隐藏 `~/Library`，
@@ -444,26 +501,49 @@ export class SettingsView {
         }
     }
 
-    // ------------------------------------------------------------ 数据
+    // ------------------------------------------------------------ 库文件
 
     private wireData(): void {
         this.revealBtn.addEventListener('click', () => void this.reveal());
-        this.openOtherBtn.addEventListener('click', () => {
-            if (!this.store.status().configured) {
-                void this.openOther();
-                return;
-            }
-            // 已经指向别处了，才多出「用默认位置」这一项
-            const items: MenuItem[] = [
-                { label: '打开其他库…', onPick: () => void this.openOther() },
-                { label: '用默认位置', onPick: () => void this.useDefault() }
-            ];
-            const rect = this.openOtherBtn.getBoundingClientRect();
-            contextMenu({ x: rect.right - 168, y: rect.bottom + 6 }, items);
-        });
+        // 「切换密码库」只做一件事：换一份库来打开。这里原先按「库在不在默认位置」
+        // 分叉出一个「更改位置…」菜单 —— 那个名字说的是移动文件，摊开的却是
+        // 「打开其他库 / 用默认位置」，两件事被一个词盖住（2026-10-19 用户报）。
+        // 移动现在有自己的行，这个按钮就只剩「打开⋯」。
+        this.openOtherBtn.addEventListener('click', () => void this.openOther());
+        this.moveBtn.addEventListener('click', () => void this.moveVault());
 
         this.exportBtn.addEventListener('click', () => void this.exportVault());
         this.renameVaultBtn.addEventListener('click', () => void this.renameVault());
+    }
+
+    /** F1.4：把库文件搬到别的文件夹。
+     *
+     *  搬完**不锁库** —— 文件内容一个字没变，只是换了目录。所以这条路不收
+     *  `host.onVaultSwitched()`，界面也不回解锁页。 */
+    private async moveVault(): Promise<void> {
+        if (!this.store.isOpen()) return;
+
+        const status = this.store.status();
+        const path = status.path;
+        if (!path) return;
+
+        const fileName = path.split('/').pop() ?? '';
+        const versions = await vaultVersions(path).catch(() => []);
+
+        const outcome = await moveVaultDialog({
+            source: path,
+            fileName,
+            versions: versions.length,
+            prepare: () => this.store.save(),
+            run: (dir) => this.store.moveTo(dir)
+        });
+        if (!outcome) return;
+
+        const extra = outcome.versions > 0 ? ` · 历史版本 ${outcome.versions} 份一起移过去` : '';
+        toast(`已移动到 ${shortPath(outcome.path)}${extra}`, 'ok', 4600);
+        // 位置行与副标题跟着变；保存状态与备份状态没变，不必整块重读
+        this.renderVaultPath();
+        void this.renderMoveHint();
     }
 
     /** F1.3：换库。当前会话会断开，所以先讲清楚代价。 */
@@ -568,18 +648,17 @@ export class SettingsView {
             void this.patch({ backupAuto: this.backupAutoEl.checked }, '保存「自动镜像」开关失败');
         });
 
-        // 历史版本上限：数字框，边打边存会存下一串半成品（1 → 12 → 123），
-        // 所以等它失焦或回车再存
-        const commitKeep = (): void => {
+        // 历史版本上限：预设档下拉（1/3/5/10/20/50）。原先是个数字框，
+        // 边打边存会存下一串半成品（1 → 12 → 123），只好等失焦再写；
+        // 换成预设档之后一次 change 就是一次完整选择，失焦那条路撤掉（2026-10-18）。
+        this.keepEl.addEventListener('change', () => {
             const n = Number(this.keepEl.value);
             if (!Number.isFinite(n)) {
                 void this.refresh();
                 return;
             }
-            void this.patch({ keepVersions: Math.round(n) }, '保存历史版本上限失败');
-        };
-        this.keepEl.addEventListener('change', commitKeep);
-        this.keepEl.addEventListener('blur', commitKeep);
+            void this.patch({ keepVersions: n }, '保存历史版本上限失败');
+        });
     }
 
     /** 挑备份目录。
@@ -659,35 +738,30 @@ export class SettingsView {
     // ------------------------------------------------------------ KDF 档位（F7.6）
 
     private wireKdf(): void {
-        this.kdfApplyBtn.addEventListener('click', () => void this.applyPreset());
-        // 拨动 select 只重新算一次「应用」按钮，不立刻重建库 ——
-        // 换档会把整个库重新加密一遍，一次误触就要重来一趟。
-        this.kdfEl.addEventListener('change', () => this.renderKdf());
+        // 换档要重建整个库，不在设置行里直接做 —— 点开弹窗，选档与验密码一趟走完。
+        // 这里原先挂着「下拉框 change → 点亮应用按钮 → 点应用」三步，
+        // 与页面上其它动作行（修改主密码、重命名、更改位置）都不是一个形态。
+        this.kdfChangeBtn.addEventListener('click', () => void this.changeKdfPreset());
     }
 
-    /** 把 KDF 那一栏对齐到库的当前状态。**会改写 select 的值** ——
-     *  只在「库的状态刚变过」的时机调用（打开面板、重建完成、换库）。 */
+    /** 把 KDF 那一栏对齐到库的当前状态。只在「库的状态刚变过」的时机调用
+     *  （打开面板、重建完成、换库）—— 弹窗里选了哪一档跟这里无关。 */
     private syncKdf(): void {
         if (this.busy) return;
 
         const open = this.store.isOpen();
         this.changePwBtn.disabled = !open;
+        this.kdfChangeBtn.disabled = !open;
 
         if (!open) {
-            this.kdfEl.value = this.config?.kdfPreset ?? DEFAULT_PRESET;
-            this.kdfEl.disabled = true;
-            this.kdfApplyBtn.disabled = true;
             this.kdfCurrentEl.textContent = '库还没打开';
             return;
         }
 
-        const h = this.store.session().header();
-        this.kdfEl.disabled = false;
-        this.kdfEl.value = h.preset ?? DEFAULT_PRESET;
         this.renderKdf();
     }
 
-    /** 只刷新「当前档位」那行与「应用」的可用性，不动 select 里用户的选择。 */
+    /** 只刷新「当前档位」那行。 */
     private renderKdf(): void {
         if (this.busy || !this.store.isOpen()) return;
 
@@ -696,34 +770,47 @@ export class SettingsView {
             ? `当前库：${h.preset} · ${h.memoryMiB} MiB`
             : // 第三方库可能落在三档之外。如实报参数，别硬套一个档位名
               `当前库：文件自带参数 ${h.memoryMiB} MiB / ${h.iterations} 轮`;
-        // 选中项与当前档位一致时没有可做的事：按钮亮着只会让人以为漏点了什么
-        this.kdfApplyBtn.disabled = this.kdfEl.value === h.preset;
     }
 
-    private async applyPreset(): Promise<void> {
+    /** 「更改…」：一个弹窗里选档 + 验主密码。
+     *
+     *  档位选择走容器分段（`.seg`）而不是下拉 —— 三个选项各自带内存与耗时说明，
+     *  下拉展开一次只能看到一个选项说明，分段点一下就能对着比。 */
+    private async changeKdfPreset(): Promise<void> {
         if (!this.store.isOpen()) return;
 
-        const target = this.kdfEl.value as PresetName;
         const cur = this.store.session().header();
+        const curName = cur.preset ?? DEFAULT_PRESET;
 
         const out = await secretDialog({
-            title: '换 KDF 档位',
+            title: '更改 KDF 档位',
             body:
-                `会把整个库按「${target}」重新加密一次（${KDF_PRESETS[target].memoryMiB} MiB）。\n` +
+                '会把整个库按新档位重新加密一次，库越大耗时越长。\n' +
                 `当前档位：${cur.preset ?? `文件自带参数 ${cur.memoryMiB} MiB`}。\n` +
-                `已经存在的历史版本与备份文件仍是旧参数，它们照旧用当前主密码打开。`,
-            fields: [{ id: 'pw', label: '主密码', placeholder: '换档前确认一次' }],
-            confirmText: '重建库'
+                '本地历史版本与备份目录里的旧副本仍是旧参数，它们照旧用当前主密码打开。',
+            segments: [
+                {
+                    id: 'preset',
+                    label: '新档位',
+                    options: PRESET_NAMES.map((name) => ({ value: name, label: name })),
+                    value: curName,
+                    describe: (value) => {
+                        const p = KDF_PRESETS[value as PresetName];
+                        return `${p.memoryMiB} MiB 内存 · 本机解锁约 ${(p.measuredInWebviewMs / 1000).toFixed(1)} 秒`;
+                    }
+                }
+            ],
+            fields: [{ id: 'pw', label: '主密码', placeholder: '重建前确认一次' }],
+            confirmText: '重建库',
+            // 选中的还是当前档位就没必要重建一次
+            validateAll: (all) => (all.preset === curName ? '与当前档位相同' : null)
         });
-        // 取消时把 select 拨回当前档位，别让它停在没生效的那一项上
-        if (!out) {
-            this.syncKdf();
-            return;
-        }
+        if (!out) return;
 
+        const target = out.preset as PresetName;
         await this.runRebuild(
-            this.kdfApplyBtn,
-            '应用',
+            this.kdfChangeBtn,
+            '更改…',
             () => this.store.changePreset(out.pw, target),
             `已按「${target}」重建库`
         );
@@ -787,7 +874,11 @@ export class SettingsView {
         this.busy = true;
         btn.disabled = true;
         btn.textContent = '重建中…';
-        this.kdfEl.disabled = true;
+        // 重建期间另一颗「重建类」按钮也要一起挡住：改成「更改…」之后它不再是
+        // select 那种「重建中变灰、重建完自动亮回来」的控件，得手动收。
+        // 收尾统一走 finally 里的 syncKdf()，按会话状态重算可用性。
+        this.changePwBtn.disabled = true;
+        this.kdfChangeBtn.disabled = true;
 
         try {
             await run();

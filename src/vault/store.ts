@@ -16,6 +16,7 @@ import {
     backupRun,
     vaultDefaultPath,
     vaultInfo,
+    vaultMove,
     vaultRead,
     vaultSave,
     vaultSetPath,
@@ -25,6 +26,7 @@ import {
     settingsGet,
     reportError,
     type BackupRun,
+    type MoveReport,
     type VaultInfo
 } from '../host';
 import { VaultSession } from './kdbx';
@@ -271,6 +273,30 @@ export class VaultStore {
         this.notify();
 
         return info;
+    }
+
+    /** 把库文件与同目录的历史版本搬到 `dir`（F1.4）。
+     *
+     *  **不走 `switchPath`**：那条路的语义是「换一份库来打开」，它会丢掉会话、
+     *  把界面退回解锁页。移动搬的是同一个文件，内容一个字没变，只是换了目录 ——
+     *  主密码没必要重输，输入到一半的条目也不该被清掉。所以这里只更新路径，
+     *  `api` 原样留着。
+     *
+     *  顺序：先落盘再搬。搬的是磁盘上那份文件，内存里攒着改动就先写出去，
+     *  否则搬过去的是旧内容。 */
+    async moveTo(dir: string): Promise<MoveReport> {
+        if (!IN_TAURI) throw new Error('移动库文件需要应用环境，浏览器预览里不可用');
+        if (this.isOpen()) await this.save();
+
+        const report = await vaultMove(dir);
+
+        // 重新问一次而不是自己拼：`configured`（库是否在默认位置）与文件大小
+        // 都由 Rust 侧按新配置算，前端另算一份就多了一个会对不上的地方。
+        this.absorb(await vaultInfo());
+        this.error = null;
+        this.notify();
+
+        return report;
     }
 
     /** 仅开发与浏览器预览使用：把一个现成的会话塞进来。

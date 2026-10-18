@@ -25,6 +25,7 @@ import { groupDialog, type GroupDraft } from './ui/palette';
 import { argon2SelfTest } from './vault/argon2';
 import { describeEngine, installArgon2, isArgon2Installed, type EngineInfo } from './vault/kdbx';
 import {
+    asciiInput,
     clipboardClearNow,
     clipboardConfigure,
     devFlags,
@@ -554,9 +555,31 @@ function errorText(err: unknown): string {
     return err instanceof Error ? err.message : String(err);
 }
 
-function nextFrame(): Promise<number> {
+/**
+ * 等到下一帧再读时间。返回 null = 等到上限也没等到帧。
+ *
+ * 为什么要上限：窗口被别的应用盖住或最小化时，浏览器会把 requestAnimationFrame
+ * 停掉，这个 Promise 就永远不 settle。`selfCheck()` 里它是第一个 await ——
+ * 卡在这里等于后面所有读数一起消失，日志里只剩「页面加载事件: Finished」，
+ * 而脚本最后只报一条「没拿到读数」，看不出跑没跑（2026-10-19 实测：几何那一段
+ * 静默挂了 6 分钟，等到看门狗把进程杀掉）。首屏耗时是参考值，不是判据，
+ * 拿不到就记 null 继续走。
+ */
+function nextFrame(timeoutMs = 3000): Promise<number | null> {
     return new Promise((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve(performance.now())));
+        let settled = false;
+        const settle = (value: number | null): void => {
+            if (settled) return;
+            settled = true;
+            resolve(value);
+        };
+        const timer = setTimeout(() => settle(null), timeoutMs);
+        requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+                clearTimeout(timer);
+                settle(performance.now());
+            })
+        );
     });
 }
 
@@ -673,8 +696,8 @@ function restoreInitialState(flags: string[]): void {
     const settingsFlag = flags.find((f) => f === 'settings' || f.startsWith('settings:'));
     setSettingsOpen(Boolean(settingsFlag));
 
-    // `settings:data` 额外把面板滚到「数据」那一组。设置面板比窗口高，
-    // 主库位置与导出在最下面，不滚的话截图里看不到。
+    // `settings:data` 额外把面板滚到「库文件」那一组（原「数据」组，2026-10-19 改名）。
+    // 设置面板比窗口高，文件位置与导出在最下面，不滚的话截图里看不到。
     // 延迟一帧再滚：面板刚由 display:none 变成可见，这一帧的布局还是旧的。
     //
     // 取值是组内某个元素的 id，而不是「第几个 .settings-group」——
@@ -699,7 +722,8 @@ async function selfCheck(
         argon2Injected: isArgon2Installed()
     };
 
-    report.firstPaintMs = round(await nextFrame());
+    const firstPaint = await nextFrame();
+    report.firstPaintMs = firstPaint === null ? null : round(firstPaint);
 
     // 视图切换成本。两次 paint 在同一个同步块里，中间不会发生绘制，
     // 所以这段测量不会让用户看到界面闪一下。
@@ -777,24 +801,28 @@ async function selfCheck(
     // 是不是真在量东西就没人知道（尺寸判据在两种状态下都返回 true）。
     const catsMuted = !seen('#cats-new');
 
-    // KDF 那一栏（F7.6）。判据成对取，缺一条都不成立：
-    //   ① 拨到**与当前档位不同**的一项 → 「应用」可点
-    //   ② 拨回当前档位那一项 → 不可点
-    // 只留 ① 的话，一个恒可点的实现也绿；只留 ② 则反过来。另外单独读一次
-    // 「当前档位」那行 —— 挡住「那行永远停在占位文案」的实现（改完代码忘了调
-    // `syncKdf()` 时就是这个样子，界面上什么都不缺）。
-    const kdfSel = document.querySelector<HTMLSelectElement>('#set-kdf');
-    const kdfBtn = document.querySelector<HTMLButtonElement>('#set-kdf-apply');
+    // KDF 那一栏（F7.6）。2026-10-18 从「下拉框 + 应用按钮」改成动作行 + 弹窗，
+    // 判据跟着换三条：
+    //   ① 「当前档位」那行要报出库文件头里的档位 —— 挡住「那行永远停在占位文案」
+    //   ② 按钮可用态跟着会话走（库没打开时点不动）
+    //   ③ 点一下真能开弹窗，且弹窗里默认选中的是当前档位 —— 只验 ② 的话，
+    //      一个「按钮能点但没接监听」的实现照样绿
+    const kdfBtn = document.querySelector<HTMLButtonElement>('#set-kdf-change');
     const kdfCurText = document.querySelector<HTMLElement>('#set-kdf-current')?.textContent ?? '';
     const curPreset = store.isOpen() ? store.session().header().preset : null;
-    const pokeKdf = (value: string): boolean => {
-        kdfSel!.value = value;
-        kdfSel!.dispatchEvent(new Event('change', { bubbles: true }));
-        return !kdfBtn!.disabled;
-    };
-    // 拨回来那一次顺带把界面恢复原状 —— 读数不该留下副作用。
-    const kdfApplies = curPreset ? pokeKdf(curPreset === '安全' ? '流畅' : '安全') : false;
-    const kdfIdle = curPreset ? !pokeKdf(curPreset) : false;
+    const kdfBtnTracks = !!kdfBtn && kdfBtn.disabled === !store.isOpen();
+
+    // 弹窗在 Promise 构造里同步挂上 DOM，所以点完就能读；读完立刻点取消，
+    // 不留下副作用，else 分支也让下面关设置页那一步照常走。
+    let kdfDialogCount = 0;
+    let kdfDialogPreset: string | null = null;
+    if (kdfBtn && !kdfBtn.disabled) {
+        kdfBtn.click();
+        const segs = Array.from(document.querySelectorAll<HTMLElement>('.mask .seg-btn'));
+        kdfDialogCount = segs.length;
+        kdfDialogPreset = segs.find((b) => b.classList.contains('on'))?.dataset.value ?? null;
+        document.querySelector<HTMLElement>('.mask [data-role="cancel"]')?.click();
+    }
 
     document.querySelector<HTMLElement>('#set-close')?.click();
     const exitWorks = !settingsOpen && paneVault.classList.contains('is-active');
@@ -806,8 +834,8 @@ async function selfCheck(
         新建入口在分类标题行内: !!addCat?.closest('.cats-label'),
         设置打开时分类不可点: catsMuted,
         KDF当前档位那行报出实际档位: !!curPreset && kdfCurText.includes(curPreset),
-        拨到别的档时应用可点: kdfApplies,
-        拨回当前档位时应用不可点: kdfIdle
+        KDF更改按钮可用态跟着会话: kdfBtnTracks,
+        KDF弹窗能开且默认选当前档: kdfDialogCount >= 2 && kdfDialogPreset === curPreset
     };
 
     // 编辑弹窗里分类字段的选项。这个字段曾经是 `<input list="cat-list">` ——
@@ -990,10 +1018,36 @@ void (async () => {
         else if (action === 'lock') shellLock();
     });
 
-    // 窗口失焦时把选中分类的强调色降一级（见 views.css 的 `body.is-blurred`）。
-    // 视频下载的侧栏选中态也是这么处理的，两端形态一致。
+    // 窗口焦点监听（保留通路）：is-blurred 的唯一消费方（分类选中行的失焦降级）
+    // 已随 2026-10-18 换轨删除 —— 灰底白字轨不做失焦降级（对齐 NAS RailRowState）。
+    // 监听本身留着，以后有需要挂失焦态的组件直接用。
+    //
+    // 顺带兜住输入法：密码框还聚焦时直接 Cmd+Tab 切走，DOM 不发 `focusout`，
+    // 不在这里还原的话英文输入法会跟着用户跑到别的 app 里。回到本 app 时，
+    // 若焦点仍在密码框上，再切一次。
     void listenWindowActive((active) => {
         document.body.classList.toggle('is-blurred', !active);
+        if (!active) {
+            asciiInput(false);
+        } else if (document.activeElement?.classList.contains('pw-mask')) {
+            asciiInput(true);
+        }
+    });
+
+    // 密码框聚焦切英文输入法、离开还原（Rust 侧 `input_source.rs`）。
+    // 走 document 级委托而不是逐个绑定：密码框分布在解锁页、建库页、条目编辑器
+    // 与确认弹窗（后者是运行中动态插进来的），一处点名一个选择器，以后加新框不用再改。
+    // 判据是 `.pw-mask` —— 全应用的密码输入都戴着它（掩码也由它画）。
+    document.addEventListener('focusin', (ev) => {
+        if ((ev.target as HTMLElement | null)?.classList?.contains('pw-mask')) asciiInput(true);
+    });
+    document.addEventListener('focusout', (ev) => {
+        const target = ev.target as HTMLElement | null;
+        if (!target?.classList?.contains('pw-mask')) return;
+        // 从一个密码框直接 Tab 到另一个密码框：不还原，免得闪一下中文再切回来。
+        const next = ev.relatedTarget as HTMLElement | null;
+        if (next?.classList?.contains('pw-mask')) return;
+        asciiInput(false);
     });
 
     if (flags.includes('accept')) {

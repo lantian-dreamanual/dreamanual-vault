@@ -46,12 +46,6 @@ export function normalizeEntryUrl(raw: string): string {
     return /^[a-z][a-z0-9+.-]*:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-/** 头像块里的字符：取标题首字母，中文取第一个字 */
-export function entryInitial(entry: VaultEntry): string {
-    const t = entry.title.trim();
-    return t ? t.slice(0, 1).toUpperCase() : '#';
-}
-
 /**
  * 分类色的可选值：Tailwind v4 的 400 档，按色相升序取 10 个。
  *

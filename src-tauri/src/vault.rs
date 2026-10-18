@@ -257,6 +257,295 @@ pub fn vault_set_path(path: Option<String>) -> Result<VaultInfo, String> {
     Ok(info_of(&target, configured_path_in(&dir).is_some()))
 }
 
+// ------------------------------------------------------------------ 移动库文件
+
+/// 一次移动做了什么
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveReport {
+    /// 搬完之后库在哪
+    pub path: String,
+    /// 一起搬过去的历史版本份数
+    pub versions: usize,
+}
+
+/// 选完目标文件夹之后的即时校验。
+///
+/// 界面按 `block` 决定显示哪条提示，文案在前端 —— 后端只说「为什么不行」，
+/// 不写给人看的话。
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MoveCheck {
+    /// 目标目录（取真实路径）
+    pub dir: String,
+    /// 目标文件的完整路径
+    pub target: String,
+    /// 文件名。搬动不改名 —— 历史版本按 `<文件名>.YYYYMMDD-HHmm.bak` 认亲，
+    /// 备份镜像按文件名对齐，改名会同时断掉这两条链。
+    pub file_name: String,
+    /// 拦下的原因码：`same-dir` / `missing` / `conflict` / `readonly`。
+    /// 可移动时为 None。
+    pub block: Option<String>,
+    /// `conflict` 时那份同名文件在哪
+    pub conflict: Option<String>,
+    /// 目标在另一块盘上（那一趟要走复制 + 校验 + 删源）
+    pub cross_disk: bool,
+    /// 目标在云盘同步目录里。只提醒、不拦 —— 库放 SynologyDrive 是正当用法
+    pub cloud: bool,
+    /// 会一起搬走的历史版本份数
+    pub versions: usize,
+}
+
+/// 拦下原因对应的一句话。只做后端报错的兜底 —— 普通流程里界面先拦住了，
+/// 走不到这里。
+fn block_text(code: &str, file_name: &str, conflict: Option<&str>) -> String {
+    match code {
+        "same-dir" => "库文件已经在这个文件夹里".to_string(),
+        "missing" => "目标文件夹不存在或打不开".to_string(),
+        "conflict" => format!(
+            "该文件夹中已有同名文件：{}",
+            conflict.unwrap_or(file_name)
+        ),
+        "readonly" => "目标文件夹不可写（权限不足）".to_string(),
+        _ => "无法移动库文件".to_string(),
+    }
+}
+
+/// 云盘同步目录。按挂载点的路径特征认：第三方云盘都在 `~/Library/CloudStorage/`，
+/// iCloud Drive 在 `~/Library/Mobile Documents/`。
+fn is_cloud_dir(dir: &Path) -> bool {
+    let path = dir.to_string_lossy();
+    path.contains("/Library/CloudStorage/") || path.contains("/Library/Mobile Documents/")
+}
+
+/// 两个路径在不在同一块盘上。`dev()` 是文件所在文件系统的设备号。
+fn same_volume(a: &Path, b: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    match (fs::metadata(a), fs::metadata(b)) {
+        (Ok(x), Ok(y)) => x.dev() == y.dev(),
+        _ => false,
+    }
+}
+
+/// 目录能不能写。
+///
+/// `metadata().permissions().readonly()` 看不出这件事 —— 目录的可写性由 ACL 和
+/// 上层的只读挂载决定，权限位只说明 owner 那一格有没有 w。唯一的判据是真的写一下：
+/// 建一个隐藏临时文件，成不成立刻删掉。
+fn writable(dir: &Path) -> bool {
+    let probe = dir.join(".dreamanual-write-probe");
+    match fs::File::create(&probe) {
+        Ok(_) => {
+            let _ = fs::remove_file(&probe);
+            true
+        }
+        Err(_) => false,
+    }
+}
+
+/// 移动前的校验。先于任何写入跑完，界面就是靠它一次给出五种结果。
+fn preflight(source: &Path, target_dir: &Path) -> Result<MoveCheck, String> {
+    let file_name = source
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .ok_or_else(|| format!("路径没有文件名：{}", source.display()))?;
+    let src_dir = source
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .ok_or_else(|| format!("路径没有父目录：{}", source.display()))?
+        .to_path_buf();
+
+    // 真实路径只用来比对（判「同一个文件夹」「同一块盘」）。
+    // **写进目标的路径用用户选的那串** —— `/Volumes` 与 `~/Library/CloudStorage`
+    // 里满是符号链接，把解析结果记进配置，设置页会显示一条用户没见过的路径。
+    let dir = target_dir.to_path_buf();
+    let dir_real = dir.canonicalize().unwrap_or_else(|_| dir.clone());
+    let src_real = src_dir.canonicalize().unwrap_or(src_dir);
+    let target = dir.join(&file_name);
+
+    let mut check = MoveCheck {
+        dir: dir.to_string_lossy().into_owned(),
+        target: target.to_string_lossy().into_owned(),
+        file_name: file_name.clone(),
+        block: None,
+        conflict: None,
+        cross_disk: false,
+        cloud: is_cloud_dir(&dir) || is_cloud_dir(&dir_real),
+        versions: crate::backup::list_versions(&src_real, &file_name).len(),
+    };
+
+    // 顺序有讲究：同目录要排在「同名冲突」前面 —— 同一个文件夹里那份同名文件
+    // 就是库自己，报成「已有同名文件」等于让人去改名改自己。
+    if src_real == dir_real {
+        check.block = Some("same-dir".to_string());
+        return Ok(check);
+    }
+    if !dir.is_dir() {
+        check.block = Some("missing".to_string());
+        return Ok(check);
+    }
+    if target.exists() {
+        check.conflict = Some(target.to_string_lossy().into_owned());
+        check.block = Some("conflict".to_string());
+        return Ok(check);
+    }
+    if !writable(&dir) {
+        check.block = Some("readonly".to_string());
+        return Ok(check);
+    }
+
+    check.cross_disk = !same_volume(&src_real, &dir_real);
+    Ok(check)
+}
+
+/// 搬一个文件。同盘 rename，跨盘复制 + 校验 + 删源。
+///
+/// 跨盘那一趟必须校验：写入是整份复制，长度对上内容也可能不同，而库文件写坏的
+/// 后果是整库打不开。校验不过就把目标删掉、源留着 —— 失败的移动不能留下半份库。
+fn move_one(from: &Path, to: &Path, same_volume: bool) -> Result<(), String> {
+    if same_volume {
+        return fs::rename(from, to).map_err(|e| format!("移动失败：{}（{}）", to.display(), e));
+    }
+
+    let bytes = fs::read(from).map_err(|e| format!("读取失败：{}（{}）", from.display(), e))?;
+    crate::fileio::write_atomic(to, &bytes)
+        .map_err(|e| format!("写入失败：{}（{}）", to.display(), e))?;
+
+    let back = fs::read(to).map_err(|e| format!("校验失败：{}（{}）", to.display(), e))?;
+    if back != bytes {
+        let _ = fs::remove_file(to);
+        return Err(format!("校验失败：{}", to.display()));
+    }
+
+    fs::remove_file(from).map_err(|e| format!("删除原文件失败：{}（{}）", from.display(), e))
+}
+
+/// 把已经搬过去的文件按相反顺序退回去。
+///
+/// 认输的路径留在原地，但会写进错误串 —— 那时用户至少要能看到「哪一份没回去」，
+/// 自己去访达里找得到。
+fn rollback(moved: &mut Vec<(PathBuf, PathBuf)>, error: String) -> String {
+    let mut stuck: Vec<String> = Vec::new();
+    while let Some((now, back)) = moved.pop() {
+        if fs::rename(&now, &back).is_err() && move_one(&now, &back, false).is_err() {
+            stuck.push(now.to_string_lossy().into_owned());
+        }
+    }
+    if stuck.is_empty() {
+        error
+    } else {
+        format!("{error}；{} 没能退回原处", stuck.join("、"))
+    }
+}
+
+/// 移动库文件与同目录的历史版本，最后把新位置记进配置。
+///
+/// 三步的顺序不能换：
+///  1. 先搬文件 —— 文件真到了新位置，配置里那条路径才成立
+///  2. 再搬历史版本 —— 主库先走，历史版本跟着走；反过来的话中途失败会留下
+///     一个「主库还在原地、几份历史版本已经走了」的夹生状态
+///  3. 最后写配置 —— 先写配置再搬文件，中途失败会让应用指向一个空位置，
+///     界面上就是「库不见了」
+///
+/// 任一步失败都把已经搬过去的退回去（见 [`rollback`]），配置不写。
+///
+/// `on_progress(已搬, 总数)` 每搬完一个文件响一次 —— 跨盘那一趟要几秒，界面靠它
+/// 显示「（7/11）」；同盘 rename 快到人来不及看，多响几次也无妨。
+pub fn move_vault(
+    source: &Path,
+    target_dir: &Path,
+    app_dir: &Path,
+    on_progress: &dyn Fn(usize, usize),
+) -> Result<MoveReport, String> {
+    if !source.exists() {
+        return Err(format!("库文件不存在：{}", source.display()));
+    }
+
+    let check = preflight(source, target_dir)?;
+    if let Some(code) = check.block.as_deref() {
+        return Err(block_text(code, &check.file_name, check.conflict.as_deref()));
+    }
+
+    let dir = PathBuf::from(&check.dir);
+    let target = PathBuf::from(&check.target);
+    let src_dir = source
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("/"));
+    let rename = !check.cross_disk;
+    let total = 1 + check.versions;
+
+    // (现在在哪, 原来在哪)
+    let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
+
+    if let Err(e) = move_one(source, &target, rename) {
+        return Err(rollback(&mut moved, e));
+    }
+    moved.push((target.clone(), source.to_path_buf()));
+    on_progress(1, total);
+
+    let mut versions = 0;
+    for version in crate::backup::list_versions(&src_dir, &check.file_name) {
+        let Some(name) = version.file_name().map(|n| n.to_os_string()) else {
+            continue;
+        };
+        let dest = dir.join(&name);
+        if let Err(e) = move_one(&version, &dest, rename) {
+            return Err(rollback(&mut moved, e));
+        }
+        moved.push((dest, version));
+        versions += 1;
+        on_progress(1 + versions, total);
+    }
+
+    // 落到默认位置时清掉配置项：`configured` 的语义是「库不在默认位置」，
+    // 留着一条指向默认位置的记录，界面会以为这个库是「打开的其他库」。
+    let record = if target == default_vault_path(app_dir) {
+        None
+    } else {
+        Some(target.to_string_lossy().into_owned())
+    };
+    if let Err(e) = set_configured_path(app_dir, record.as_deref()) {
+        return Err(rollback(&mut moved, format!("记下新位置失败：{e}")));
+    }
+
+    Ok(MoveReport {
+        path: target.to_string_lossy().into_owned(),
+        versions,
+    })
+}
+
+/// 移动进度：每搬完一个文件发一次（`{ done, total }`）
+pub const MOVE_PROGRESS_EVENT: &str = "vault-move-progress";
+
+/// 移动前的即时校验。选完目标文件夹就调一次，把「同目录 / 不存在 / 同名 /
+/// 不可写」以及「跨盘 / 云盘 / 历史版本份数」一次问清。
+#[tauri::command]
+pub fn vault_move_check(dir: String) -> Result<MoveCheck, String> {
+    preflight(&vault_path(), Path::new(dir.trim()))
+}
+
+/// 把库文件与同目录的历史版本一起搬到 `dir`。
+///
+/// **不锁库。** 搬的是同一个文件，内容没变，主密码也不用重输 —— 调用方在搬之前
+/// 把内存里的改动落盘（`store.moveTo`），搬完之后会话与界面照旧。
+#[tauri::command]
+pub fn vault_move(dir: String, app: tauri::AppHandle) -> Result<MoveReport, String> {
+    use tauri::Emitter as _;
+    move_vault(
+        &vault_path(),
+        Path::new(dir.trim()),
+        &app_dir(),
+        &|done, total| {
+            // 发不出去也不影响搬 —— 进度只是一行字
+            let _ = app.emit(
+                MOVE_PROGRESS_EVENT,
+                serde_json::json!({ "done": done, "total": total }),
+            );
+        },
+    )
+}
+
 /// 默认位置。配置里记着别处的库也不影响它。
 ///
 /// 与 `vault_info(None)` 的区别正是它存在的理由：那个给的是「当前库在哪」，
@@ -450,5 +739,156 @@ mod tests {
         assert!(err.contains("base64"), "实际是：{err}");
         assert!(!path.exists(), "解码失败时不应产生任何文件");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ---------------------------------------------------------- 移动库文件
+
+    /// 搬库要连带同目录的历史版本，且新位置要写进配置 —— 否则下次启动
+    /// 会回到一个空文件上，界面上就是「库不见了」。
+    #[test]
+    fn move_takes_the_versions_along_and_records_the_new_path() {
+        let root = temp_dir("dreamanual-vault-move");
+        let home = root.join("home");
+        let old = root.join("旧文件夹");
+        let new = root.join("新文件夹");
+        fs::create_dir_all(&home).unwrap();
+        fs::create_dir_all(&old).unwrap();
+        fs::create_dir_all(&new).unwrap();
+
+        let vault = old.join("蓝添.kdbx");
+        fs::write(&vault, b"vault-bytes").unwrap();
+        for stamp in ["20260921-0900", "20260922-1000"] {
+            fs::write(
+                old.join(crate::backup::version_name("蓝添.kdbx", stamp)),
+                stamp.as_bytes(),
+            )
+            .unwrap();
+        }
+
+        let report = move_vault(&vault, &new, &home, &|_, _| {}).unwrap();
+
+        assert_eq!(report.versions, 2, "同目录的两份历史版本要一起走");
+        assert_eq!(fs::read(new.join("蓝添.kdbx")).unwrap(), b"vault-bytes");
+        assert!(!vault.exists(), "原位置不该还留着库");
+        assert!(
+            new.join(crate::backup::version_name("蓝添.kdbx", "20260921-0900"))
+                .exists(),
+            "历史版本要跟到新文件夹"
+        );
+        assert_eq!(
+            crate::backup::list_versions(&old, "蓝添.kdbx").len(),
+            0,
+            "旧文件夹里不该剩下历史版本"
+        );
+
+        assert_eq!(
+            configured_path_in(&home).as_deref(),
+            Some(report.path.as_str()),
+            "新位置必须记进配置"
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// 搬回默认位置等于「不在别处了」，配置项要清掉 —— 留着的话设置页会把
+    /// 默认库当成「打开的其他库」。
+    #[test]
+    fn moving_back_to_the_default_dir_clears_the_config_entry() {
+        let root = temp_dir("dreamanual-vault-move-back");
+        let home = root.join("home");
+        let old = root.join("旧文件夹");
+        fs::create_dir_all(&home).unwrap();
+        fs::create_dir_all(&old).unwrap();
+
+        let vault = old.join(VAULT_FILE);
+        fs::write(&vault, b"x").unwrap();
+
+        let report = move_vault(&vault, &home, &home, &|_, _| {}).unwrap();
+
+        assert_eq!(PathBuf::from(&report.path), default_vault_path(&home));
+        assert_eq!(configured_path_in(&home), None, "回到默认位置就不该留配置");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// 同名冲突要拦在写入之前，且一个字都不动
+    #[test]
+    fn conflict_blocks_the_move_and_touches_nothing() {
+        let root = temp_dir("dreamanual-vault-move-conflict");
+        let old = root.join("旧文件夹");
+        let new = root.join("新文件夹");
+        fs::create_dir_all(&old).unwrap();
+        fs::create_dir_all(&new).unwrap();
+
+        let vault = old.join("蓝添.kdbx");
+        fs::write(&vault, b"mine").unwrap();
+        let occupied = new.join("蓝添.kdbx");
+        fs::write(&occupied, b"theirs").unwrap();
+
+        let check = preflight(&vault, &new).unwrap();
+        assert_eq!(check.block.as_deref(), Some("conflict"));
+        assert_eq!(check.conflict.as_deref(), Some(occupied.to_string_lossy().as_ref()));
+
+        assert!(move_vault(&vault, &new, &root, &|_, _| {}).is_err());
+        assert_eq!(fs::read(&vault).unwrap(), b"mine", "原库要原样留着");
+        assert_eq!(fs::read(&occupied).unwrap(), b"theirs", "不覆盖别人的那份");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// 同目录要单独报，不能报成「已有同名文件」—— 那句会让人去改名改自己
+    #[test]
+    fn same_dir_is_reported_before_conflict() {
+        let root = temp_dir("dreamanual-vault-move-same");
+        fs::create_dir_all(&root).unwrap();
+        let vault = root.join("vault.kdbx");
+        fs::write(&vault, b"x").unwrap();
+
+        let check = preflight(&vault, &root).unwrap();
+        assert_eq!(check.block.as_deref(), Some("same-dir"));
+        assert_eq!(check.conflict, None);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// 目标文件夹不存在时不该顺手把它建出来
+    #[test]
+    fn missing_target_dir_blocks_without_creating_it() {
+        let root = temp_dir("dreamanual-vault-move-missing");
+        let vault = root.join("vault.kdbx");
+        fs::write(&vault, b"x").unwrap();
+
+        let gone = root.join("这个文件夹不在");
+        let check = preflight(&vault, &gone).unwrap();
+        assert_eq!(check.block.as_deref(), Some("missing"));
+        assert!(!gone.exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// 校验会顺带报出「会一起搬几份历史版本」，界面的副标题与弹窗都用它
+    #[test]
+    fn check_counts_the_versions_beside_the_vault() {
+        let root = temp_dir("dreamanual-vault-move-count");
+        let old = root.join("old");
+        let new = root.join("new");
+        fs::create_dir_all(&old).unwrap();
+        fs::create_dir_all(&new).unwrap();
+
+        let vault = old.join("vault.kdbx");
+        fs::write(&vault, b"x").unwrap();
+        for stamp in ["20260921-0900", "20260922-1000", "20260923-1100"] {
+            fs::write(old.join(crate::backup::version_name("vault.kdbx", stamp)), b"v").unwrap();
+        }
+        // 别家的历史版本不跟着走
+        fs::write(old.join(crate::backup::version_name("别的库.kdbx", "20260921-0900")), b"v").unwrap();
+
+        let check = preflight(&vault, &new).unwrap();
+        assert_eq!(check.versions, 3);
+        assert!(check.block.is_none());
+        assert!(!check.cross_disk, "同一个临时目录当然同盘");
+        assert!(!check.cloud);
+
+        let _ = fs::remove_dir_all(&root);
     }
 }

@@ -185,7 +185,10 @@ svg {
     width: 100%;
     height: var(--ctl-38);
     padding: 0 var(--sp-12);
-    background: var(--panel-2);
+    /* background-color 而不是 background 简写（2026-10-18）：简写会把
+       background-image 一并清成 none，select.inp 的自绘箭头画上就被抹掉 ——
+       下面的 `.modal .inp` 组特异度更高（0,2,0 > 0,1,1），简写一出场箭头必没。 */
+    background-color: var(--panel-2);
     border: 1px solid var(--line-2);
     border-radius: var(--r-8);
     outline: none;
@@ -226,7 +229,8 @@ svg {
 .modal .inp,
 .lock-card .inp,
 .srow .inp {
-    background: var(--panel-3);
+    /* 同上：只换颜色，不清掉 select 的自绘箭头 */
+    background-color: var(--panel-3);
 }
 
 /* 卡片里的次级按钮分两档（2026-10-17，与 NAS / 投资监控 / 视频下载同批）：
@@ -252,12 +256,17 @@ textarea.inp {
     line-height: 1.6;
 }
 
+/* 下拉框自绘箭头（2026-10-18 用户报「看着不像下拉框」）：`.inp` 全局
+   `appearance: none` 剥掉了原生箭头，这里画回来 —— 14×14 的 chevron-down，
+   data URI 里写不了 currentColor，取 --ink-3 的字面值（URI 里是 %23a1a1a1）。
+   旧版是两个 5px 渐变三角、纵向 17px 按 38 高的表单输入框调的，进了 32 高的
+   设置行既偏位又几乎看不见。background-size 必须显式给：不给会沿用别处
+   留下的 5px 档，整枚箭头被压成一个点。 */
 select.inp {
-    padding-right: 26px;
-    background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%),
-        linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
-    background-position: calc(100% - 15px) 17px, calc(100% - 10px) 17px;
-    background-size: 5px 5px, 5px 5px;
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 10px center;
+    background-size: 14px 14px;
     background-repeat: no-repeat;
 }
 
@@ -432,6 +441,163 @@ select.inp {
     gap: var(--sp-8);
     justify-content: flex-end;
     border-top: 1px solid var(--line);
+}
+
+/* 弹窗内的提示条（第八节「提示条」的卡片式，2026-10-19「移动库文件」弹窗首批）。
+   圆角取 r-10 —— 第七节把「行内提示条」定在这一档（不是控件档 r-8）；
+   底与字取语义族 -soft / -ink。info 一档在 panel-2 卡面上没有族色可用，
+   按「卡内抬一档」取 panel-3，与卡内输入件同一档。 */
+.strip {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-8);
+    margin-top: var(--sp-12);
+    padding: var(--sp-10) var(--sp-12);
+    border: 1px solid transparent;
+    border-radius: var(--r-10);
+    font-size: var(--fs-12);
+    line-height: 1.6;
+}
+
+/* 图标顶端与第一行文字的基线对齐。1px 是这一处与字体度量绑定的微调，
+   换字号要跟着看 —— 不进令牌 */
+.strip svg {
+    flex: none;
+    margin-top: 1px;
+}
+
+.strip b {
+    font-weight: 600;
+}
+
+.strip.info {
+    background: var(--panel-3);
+    border-color: var(--line-2);
+    color: var(--ink);
+}
+
+.strip.warn {
+    background: var(--warn-soft);
+    border-color: var(--warn-line);
+    color: var(--warn-ink);
+}
+
+.strip.danger {
+    background: var(--danger-soft);
+    border-color: var(--danger-line);
+    color: var(--danger-ink);
+}
+
+/* 正文第一块就是提示条时（失败态），上面那 12px 会顶出一道空 */
+.modal-body > .strip:first-child {
+    margin-top: 0;
+}
+
+/* 弹窗标题栏的关闭按钮在执行中藏起来 —— 那几秒不给出口，
+   `display: none` 会让图标消失后标题仍在原位，用不可见 + 不可点更稳。 */
+.icon-btn.is-off {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ---------- 移动库文件弹窗 ---------- */
+
+.mv-lbl {
+    margin-bottom: var(--sp-6);
+    font-size: var(--fs-12);
+    font-weight: 500;
+    color: var(--ink-2);
+}
+
+.mv-path {
+    margin-bottom: var(--sp-14);
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: var(--fs-11);
+    line-height: 1.6;
+    color: var(--ink-3);
+    word-break: break-all;
+}
+
+.mv-target {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-10);
+}
+
+.mv-val {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: var(--fs-11);
+    color: var(--ink);
+}
+
+.mv-val.is-empty {
+    font-family: inherit;
+    font-size: var(--fs-12);
+    color: var(--ink-3);
+}
+
+.mv-note {
+    margin-top: var(--sp-12);
+    font-size: var(--fs-12);
+    line-height: 1.65;
+    color: var(--ink-3);
+}
+
+.mv-note b {
+    font-weight: 600;
+    color: var(--ink-2);
+}
+
+/* 执行中的三步清单。做完的一步与正在做的一步取正文色，未做的压 ink-3；
+   图标各自走语义色（完成 ok / 进行中强调色 / 未开始中性）。 */
+.mv-steps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-12);
+    padding: var(--sp-4) 0 var(--sp-16);
+}
+
+.mv-step {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-10);
+    font-size: var(--fs-13);
+    color: var(--ink-3);
+}
+
+.mv-step.is-done,
+.mv-step.is-now {
+    color: var(--ink);
+}
+
+.mv-step .ico {
+    flex: none;
+    width: var(--sp-16);
+    height: var(--sp-16);
+    display: grid;
+    place-items: center;
+}
+
+.mv-step.is-done .ico {
+    color: var(--ok);
+}
+
+.mv-step.is-now .ico {
+    color: var(--accent);
+}
+
+.mv-step .ico.is-spin {
+    animation: mv-spin 1s linear infinite;
+}
+
+@keyframes mv-spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* 密码输入框里的显示 / 生成按钮 */

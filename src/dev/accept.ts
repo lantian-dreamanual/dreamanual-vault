@@ -31,6 +31,7 @@ import {
     settingsUpdate,
     vaultDefaultPath,
     vaultInfo,
+    vaultMoveCheck,
     vaultRead,
     vaultVersions
 } from '../host';
@@ -1182,7 +1183,44 @@ export async function runAcceptance(
         const sameSet = (a: string[], b: string[]): boolean =>
             a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
-        const keepEl = document.querySelector<HTMLInputElement>('#set-keep');
+        // KDF 档位的选项 2026-10-18 搬进了弹窗（设置行只剩一颗「更改…」）。
+        // 判据从「读下拉的 option」改成「点开弹窗读分段」—— 弹窗里的档位
+        // 来自 `kdf.ts` 的 `PRESET_NAMES`，那才是界面真正的取值来源；
+        // 在 index.html 上再挂一份 `data-*` 副本拿来比对，副本漂了照样绿。
+        const kdfBtn = document.querySelector<HTMLButtonElement>('#set-kdf-change');
+        let kdfOptions: string[] = [];
+        if (kdfBtn && !kdfBtn.disabled) {
+            kdfBtn.click();
+            await sleep(30);
+            kdfOptions = Array.from(document.querySelectorAll<HTMLElement>('.mask .seg-btn'))
+                .map((b) => b.dataset.value ?? '')
+                .sort();
+            // 即刻收掉，别让弹窗留在后面的用例上
+            document.querySelector<HTMLElement>('.mask [data-role="cancel"]')?.click();
+            await sleep(30);
+        }
+
+        // 历史版本上限现在是预设档下拉。比上下限不够了：1 与 50 之间还得
+        // 每一档都落在配置层允许的区间里，否则选中它保存会被 Rust 夹成别的值。
+        // 带 data-custom 的是「磁盘上那个不在预设里的旧值」的兜底项，不算预设。
+        const keepValues = Array.from(
+            document.querySelectorAll<HTMLOptionElement>('#set-keep option')
+        )
+            .filter((o) => !o.dataset.custom)
+            .map((o) => o.value);
+        const keepNums = keepValues.map(Number);
+        const keepOk =
+            keepValues.length > 0 &&
+            keepNums.every(
+                (n, i) =>
+                    Number.isFinite(n) &&
+                    String(n) === keepValues[i] &&
+                    n >= choices.keepVersionsMin &&
+                    n <= choices.keepVersionsMax
+            ) &&
+            Math.min(...keepNums) === choices.keepVersionsMin &&
+            Math.max(...keepNums) === choices.keepVersionsMax;
+
         const mismatches: string[] = [];
         if (!sameSet(optionValues('set-autolock'), choices.autoLockMinutes.map(String))) {
             mismatches.push('自动锁定');
@@ -1190,17 +1228,16 @@ export async function runAcceptance(
         if (!sameSet(optionValues('set-clipclear'), choices.clipboardClearSeconds.map(String))) {
             mismatches.push('剪贴板清除');
         }
-        if (!sameSet(optionValues('set-kdf'), choices.kdfPresets)) mismatches.push('KDF 档位');
-        if (keepEl?.min !== String(choices.keepVersionsMin)) mismatches.push('历史版本下限');
-        if (keepEl?.max !== String(choices.keepVersionsMax)) mismatches.push('历史版本上限');
+        if (!sameSet(kdfOptions, choices.kdfPresets)) mismatches.push('KDF 档位');
+        if (!keepOk) mismatches.push('历史版本上限');
 
         check(
             'B11',
-            '设置页下拉的选项与配置层认得的取值一一对应',
+            '设置页的选项与配置层认得的取值一一对应',
             mismatches.length === 0,
             mismatches.length
                 ? `对不上：${mismatches.join(' / ')}（改了界面没同步改 config.rs，或反过来）`
-                : `自动锁定 ${choices.autoLockMinutes.length} 档 · 剪贴板 ${choices.clipboardClearSeconds.length} 档 · KDF ${choices.kdfPresets.length} 档 · 历史版本 ${choices.keepVersionsMin}–${choices.keepVersionsMax}`
+                : `自动锁定 ${choices.autoLockMinutes.length} 档 · 剪贴板 ${choices.clipboardClearSeconds.length} 档 · KDF ${kdfOptions.length} 档 · 历史版本 ${keepValues.length} 档（${choices.keepVersionsMin}–${choices.keepVersionsMax}）`
         );
 
         // ---------------------------------------------------------------- 备份目录按钮
@@ -1253,6 +1290,177 @@ export async function runAcceptance(
                       menuLabels.length ? menuLabels.join(' / ') : '（点了没弹出来）'
                   }`
         );
+
+        // ---------------------------------------------------------------- 库文件区（F1.4）
+
+        await mark('B13 库文件区与移动库文件');
+        // 这一批（2026-10-19）把「数据」组换成「库文件」，一行一件事：
+        // 库名 / 文件位置 / 移动库文件 / 导出副本 / 切换密码库。
+        //
+        // 起因是个语义错位：原先位置那行挂着「更改位置…」，点开弹的却是
+        // 「打开其他库…」。应用里根本没有「移动文件」这个动作，按钮名描述结果、
+        // 菜单给的是另一件事。所以这里除了验结构，还要**验旧文案不在了** ——
+        // 那句「更改位置」只要还留在页面上，用户就会再点一次。
+        const groups = Array.from(document.querySelectorAll('.settings-group h2')).map(
+            (h) => h.textContent ?? ''
+        );
+        const rowOf = (id: string): Element | null =>
+            document.querySelector(`#${id}`)?.closest('.srow') ?? null;
+        const rowTitle = (id: string): string =>
+            rowOf(id)?.querySelector('.srow-k b')?.textContent ?? '';
+        const rowSub = (id: string): string =>
+            rowOf(id)?.querySelector('.srow-k span')?.textContent ?? '';
+
+        // 「文件位置」行只剩「在访达中显示」一个动作 —— 换库与移动各有自己的行
+        const pathRowButtons = Array.from(rowOf('set-vault-path')?.querySelectorAll('button') ?? []);
+        const pathRowIsClean =
+            pathRowButtons.length === 1 &&
+            pathRowButtons[0].id === 'set-reveal' &&
+            pathRowButtons[0].textContent === '在访达中显示';
+
+        // 修改主密码搬到安全组、紧挨 KDF 档位（两件事都是「整库重新加密一遍」）
+        const securityRows = Array.from(document.querySelectorAll('.settings-group'))
+            .find((g) => g.querySelector('h2')?.textContent === '安全')
+            ?.querySelectorAll('.srow-k b');
+        const securityTitles = Array.from(securityRows ?? []).map((b) => b.textContent ?? '');
+        const pwIdx = securityTitles.indexOf('修改主密码');
+        const kdfIdx = securityTitles.indexOf('KDF 强度档位');
+
+        const structureOk =
+            groups.includes('库文件') &&
+            !groups.includes('数据') &&
+            rowTitle('set-vault-path') === '文件位置' &&
+            pathRowIsClean &&
+            rowTitle('set-move') === '移动库文件' &&
+            document.querySelector('#set-move')?.textContent === '移动…' &&
+            rowTitle('set-export') === '导出副本' &&
+            !rowSub('set-export') &&
+            rowTitle('set-open-other') === '切换密码库' &&
+            document.querySelector('#set-open-other')?.textContent === '打开…' &&
+            pwIdx >= 0 &&
+            pwIdx === kdfIdx - 1;
+
+        // 「移动库文件」的副标题要报出会一起走几份历史版本；读不到就不写这句
+        const currentPath = (await vaultInfo()).path;
+        const versionsHere = await vaultVersions(currentPath).catch(() => []);
+        const moveSubOk =
+            versionsHere.length === 0 || rowSub('set-move') === `同目录的 ${versionsHere.length} 份历史版本一起移动`;
+
+        const staleCopy = Array.from(document.querySelectorAll('.settings-body *')).some((el) =>
+            (el.textContent ?? '').includes('更改位置')
+        );
+
+        check(
+            'B13',
+            '库文件区分成五行、旧文案「更改位置」已撤',
+            structureOk && moveSubOk && !staleCopy,
+            !structureOk
+                ? `分组：${groups.join(' / ')} · 位置行按钮 ${pathRowButtons.length} 个 · 安全组：${securityTitles.join(' / ')}`
+                : staleCopy
+                  ? '页面上还有「更改位置」'
+                  : `移动库文件副标题「${rowSub('set-move')}」· 历史版本 ${versionsHere.length} 份`
+        );
+
+        // ---------------------------------------------------------------- 真的搬一次
+
+        await mark('B14 移动库文件（真搬）');
+        // 判据分三层：拦截（同目录 / 不存在 / 同名）、真搬（文件与历史版本都到新位置、
+        // 会话不断）、搬回（配置跟着回去）。三条都在文件系统上跑真的，
+        // 因为这一批最容易错的地方就是「界面说搬好了，文件其实还在原地」。
+        //
+        // 目标文件夹靠导出造出来（`vault_write` 会顺手建目录），不依赖脚本预建。
+        const homeDir = (await vaultDefaultPath()).replace(/\/[^/]+$/, '');
+        const origin = (await vaultInfo()).path;
+        const originDir = origin.replace(/\/[^/]+$/, '');
+        const fileName = origin.split('/').pop() ?? 'vault.kdbx';
+        const outDir = `${homeDir}/move-out`;
+        const clashDir = `${homeDir}/move-out2`;
+
+        // 先落一次盘，让「历史版本份数」有个稳定的起点
+        if (store.isOpen()) await store.save();
+        const beforeMove = (await vaultVersions(origin)).length;
+
+        const blocked: string[] = [];
+        const sameDir = await vaultMoveCheck(originDir);
+        if (sameDir.block !== 'same-dir') blocked.push(`同目录报成了 ${sameDir.block}`);
+        const missing = await vaultMoveCheck(`${homeDir}/没有这个文件夹`);
+        if (missing.block !== 'missing') blocked.push(`不存在的目录报成了 ${missing.block}`);
+
+        // 造一份同名文件：目标是「有文件、但不是库自己」的那个文件夹
+        await store.exportTo(`${clashDir}/${fileName}`);
+        const clash = await vaultMoveCheck(clashDir);
+        if (clash.block !== 'conflict') blocked.push(`同名冲突报成了 ${clash.block}`);
+
+        let clashRejected = false;
+        try {
+            await store.moveTo(clashDir);
+        } catch {
+            clashRejected = true;
+        }
+        if (!clashRejected) blocked.push('同名冲突没被拦住，居然搬过去了');
+        if ((await vaultInfo()).path !== origin) blocked.push('冲突之后库位置变了');
+
+        // 目标文件夹本身就是「已存在」这一条的前提：选文件夹的对话框只能选到
+        // 已有目录，产品不会替用户创建（`preflight` 把不存在报成 missing）。
+        // 这里借导出把目录造出来 —— 文件名换成别的，否则会顺手造出一个同名文件，
+        // 把「正常目标」这一条测成 conflict。
+        await store.exportTo(`${outDir}/占位副本.kdbx`);
+
+        const ok = await vaultMoveCheck(outDir);
+        if (ok.block) blocked.push(`正常目标被拦下：${ok.block}`);
+
+        let moveOk = false;
+        let moveDetail = '';
+        let backOk = false;
+        let backDetail = '';
+        try {
+            const report = await store.moveTo(outDir);
+            const after = await vaultInfo();
+            const versionsAfter = (await vaultVersions(report.path)).length;
+            const leftovers = (await vaultVersions(origin)).length;
+
+            moveOk =
+                report.path === `${outDir}/${fileName}` &&
+                after.path === report.path &&
+                store.isOpen() &&
+                after.exists &&
+                versionsAfter === report.versions &&
+                leftovers === 0;
+
+            moveDetail = moveOk
+                ? `搬到 ${report.path} · 历史版本 ${report.versions} 份（搬前 ${beforeMove}）· 会话未断`
+                : `落的不是新位置：report=${report.path} · info=${after.path} · 新位置历史版本 ${versionsAfter}（报 ${report.versions}）· 旧位置还剩 ${leftovers} 份 · 会话${store.isOpen() ? '在' : '断了'}`;
+        } catch (err) {
+            moveDetail = message(err);
+        }
+        check(
+            'B14',
+            '移动库文件：三类拦截成立，真搬后文件与会话都在',
+            !blocked.length && moveOk,
+            blocked.length ? blocked.join(' / ') : moveDetail
+        );
+
+        // ---------------------------------------------------------------- 搬回去
+
+        await mark('B15 移动库文件（搬回）');
+        try {
+            const back = await store.moveTo(originDir);
+            const info = await vaultInfo();
+            const backVersions = (await vaultVersions(origin)).length;
+
+            backOk =
+                back.path === origin &&
+                info.path === origin &&
+                backVersions === back.versions;
+            backDetail = backOk
+                ? `${origin} · 历史版本 ${back.versions} 份 · 配置${
+                      info.configured ? '指向自定义位置' : '回到默认位置'
+                  }`
+                : `路径 ${back.path}（应为 ${origin}）· 历史版本 ${backVersions} 份（搬 ${back.versions} 份）`;
+        } catch (err) {
+            backDetail = moveOk ? message(err) : '上一步失败，未执行';
+        }
+        check('B15', '搬回原位置：路径与历史版本都回去了', backOk, backDetail);
 
         // ---------------------------------------------------------------- 自动锁定
 

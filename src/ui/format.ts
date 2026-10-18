@@ -19,6 +19,26 @@ export function shortPath(path: string): string {
     return `…/${parts.slice(-2).join('/')}`;
 }
 
+/** 把路径切成「目录」与「文件名」两段，给设置页的位置行用。
+ *
+ *  位置行只留结尾两级目录：路径的辨认点在末尾（哪个文件夹、哪份文件），
+ *  开头那串 `/Users/<名字>/Library/Application Support/…` 每台机器都一样，
+ *  占的宽度却最多。切出来是为了**分色显示** —— 目录压暗、文件名提亮，
+ *  一眼能分出「这份文件在哪」。`clipped` 为真表示前面还有被省掉的层级，
+ *  界面上补一个 `…`。 */
+export function pathParts(
+    path: string,
+    keepDirs = 2
+): { dir: string; file: string; clipped: boolean } {
+    const parts = path.split('/').filter(Boolean);
+    if (!parts.length) return { dir: '', file: '', clipped: false };
+
+    const file = parts.pop() ?? '';
+    const keep = parts.slice(-keepDirs);
+    const dir = keep.length ? `${keep.join('/')}/` : '';
+    return { dir, file, clipped: parts.length > keep.length };
+}
+
 /** 24 小时制 HH:MM */
 export function clockTime(at: number): string {
     const d = new Date(at);

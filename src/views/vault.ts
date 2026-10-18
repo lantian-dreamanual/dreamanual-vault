@@ -11,7 +11,6 @@
 
 import {
     compareEntries,
-    entryInitial,
     entrySubtitle,
     groupColor,
     matches,
@@ -221,7 +220,6 @@ export class VaultView {
                     const on = current && e.id === current.id ? ' on' : '';
                     return (
                         `<div class="item${on}" data-id="${e.id}" tabindex="0" role="button">` +
-                        `<div class="ava">${highlight(entryInitial(e), this.query)}</div>` +
                         `<div class="item-main">` +
                         `<div class="item-title">${highlight(e.title, this.query)}</div>` +
                         `<div class="item-sub">${highlight(entrySubtitle(e), this.query)}</div>` +
@@ -282,7 +280,6 @@ export class VaultView {
 
         this.detailEl.innerHTML =
             `<div class="detail-head">` +
-            `<div class="detail-ava">${entryInitial(entry)}</div>` +
             `<div>` +
             `<div class="detail-title">${highlight(entry.title, this.query)}</div>` +
             `<div class="detail-tags">` +

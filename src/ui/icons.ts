@@ -28,12 +28,25 @@ export const icons = {
     trash: (size = 15) => wrap('trash-2', size),
     plus: (size = 15) => wrap('plus', size),
     external: (size = 15) => wrap('external-link', size),
+    /** 弹窗标题栏右上角的关闭。14 与页面上其它弹窗的关闭同档 */
+    close: (size = 14) => wrap('x', size),
 
     // Toast 的语义图标。默认 16 —— 第八节「Toast」定的就是 ic-16，
     // 三处调用不在别处复用，默认值直接给规格值，省掉每次写尺寸。
     ok: (size = 16) => wrap('circle-check', size),
     err: (size = 16) => wrap('circle-x', size),
     info: (size = 16) => wrap('info', size),
+
+    // 弹窗里的警示块。按**语义族**取，不按轻重各配一枚：warn 与 danger 同用
+    // 警示三角，与 NAS 的 `DmDangerNote` 一个落法（2026-10-19 用户问「为什么
+    // 重名冲突和移动失败图标不一致」，起因是我当初给失败配了 circle-alert，
+    // 而产品线里没有这枚）。默认 14 是提示条内图标的规格。
+    alert: (size = 14) => wrap('triangle-alert', size),
+
+    // 执行清单的三种步骤状态：完成 / 进行中 / 未开始
+    stepDone: (size = 16) => wrap('circle-check', size),
+    stepNow: (size = 16) => wrap('loader-circle', size),
+    stepNext: (size = 16) => wrap('circle', size),
 
     // 保存状态位（底栏库名右侧，main.ts 的 store 订阅注入）。默认 14 ——
     // 与同排两个 icon-btn 同尺寸。三态：saving→save / saved→save-check /

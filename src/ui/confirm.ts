@@ -170,10 +170,27 @@ export interface SecretField {
     validate?: (value: string, all: Record<string, string>) => string | null;
 }
 
+/** 弹窗内的互斥选择组（容器分段，第八节「分段控件」的表单内形态）。
+ *
+ *  用于「换 KDF 档位」这类**必须在确认前先做一次选择**的危险操作 ——
+ *  选择留在弹窗里，设置页就不存在「选了但没生效」的中间态。 */
+export interface SecretSegment {
+    id: string;
+    /** 选择组上方的字段名（例如「新档位」）。 */
+    label: string;
+    options: { value: string; label: string }[];
+    /** 初始选中值 */
+    value: string;
+    /** 选中项下方的说明。切一段就重算一次。 */
+    describe?: (value: string) => string;
+}
+
 export interface SecretDialogOptions {
     title: string;
     /** 弹窗正文。留给「改完之后旧副本仍是旧密码」这类必须让人看见的话。 */
     body?: string;
+    /** 选择组，渲染在密码字段上方；选中值按 id 一起返回。 */
+    segments?: SecretSegment[];
     fields: SecretField[];
     confirmText?: string;
     /** 跨字段的整体校验（例如两次输入要一致）。返回非空字符串表示不通过。 */
@@ -191,11 +208,36 @@ export interface SecretDialogOptions {
  * 交回调用方，真正可不可用由调用方去验（旧密码对不对只有解锁一次才知道）。
  */
 export function secretDialog(options: SecretDialogOptions): Promise<Record<string, string> | null> {
-    const { title, body = '', fields, confirmText = '确定', validateAll } = options;
+    const { title, body = '', segments = [], fields, confirmText = '确定', validateAll } = options;
 
     return new Promise<Record<string, string> | null>((resolve) => {
         const mask = document.createElement('div');
         mask.className = 'mask';
+
+        // 选择组的当前值：点一段就改一次，提交时与密码字段一起交回调用方
+        const segValues: Record<string, string> = {};
+        for (const s of segments) segValues[s.id] = s.value;
+
+        const segRows = segments
+            .map(
+                (s) =>
+                    `<div class="field">` +
+                    `<label>${escapeHtml(s.label)}</label>` +
+                    `<div class="seg" data-seg="${escapeHtml(s.id)}">` +
+                    s.options
+                        .map(
+                            (o) =>
+                                `<button type="button" class="seg-btn${o.value === s.value ? ' on' : ''}" ` +
+                                `data-value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</button>`
+                        )
+                        .join('') +
+                    `</div>` +
+                    (s.describe
+                        ? `<div class="seg-hint" data-hint="${escapeHtml(s.id)}">${escapeHtml(s.describe(s.value))}</div>`
+                        : '') +
+                    `</div>`
+            )
+            .join('');
 
         const rows = fields
             .map(
@@ -219,6 +261,7 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
             `<div class="modal-head"><h2>${escapeHtml(title)}</h2></div>` +
             `<div class="modal-body">` +
             (body ? `<div class="block-v" style="padding-bottom:12px">${escapeHtml(body)}</div>` : '') +
+            segRows +
             rows +
             `<div class="lock-msg" data-role="err"></div>` +
             `</div>` +
@@ -231,7 +274,7 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
         const inputs = Array.from(mask.querySelectorAll<HTMLInputElement>('input[data-field]'));
 
         const readAll = (): Record<string, string> => {
-            const all: Record<string, string> = {};
+            const all: Record<string, string> = { ...segValues };
             for (const el of inputs) all[el.dataset.field!] = el.value;
             return all;
         };
@@ -260,6 +303,26 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
             }
             finish(all);
         };
+
+        // 分段：点一段换一次选中，选中项下方的说明跟着重算。
+        // 不走事件委托里那个 [data-role] 判断 —— 段按钮既不是确定也不是取消。
+        for (const group of Array.from(mask.querySelectorAll<HTMLElement>('[data-seg]'))) {
+            const segId = group.dataset.seg!;
+            const spec = segments.find((s) => s.id === segId);
+            for (const btn of Array.from(group.querySelectorAll<HTMLButtonElement>('.seg-btn'))) {
+                btn.addEventListener('click', () => {
+                    segValues[segId] = btn.dataset.value!;
+                    for (const b of Array.from(group.querySelectorAll('.seg-btn'))) {
+                        b.classList.toggle('on', b === btn);
+                    }
+                    if (spec?.describe) {
+                        const hint = mask.querySelector<HTMLElement>(`[data-hint="${segId}"]`);
+                        if (hint) hint.textContent = spec.describe(btn.dataset.value!);
+                    }
+                    errBox.textContent = '';
+                });
+            }
+        }
 
         function onKey(ev: KeyboardEvent): void {
             // 输入法选词时的回车 / Esc 不响：这两个弹窗里的输入框装的是分类名、

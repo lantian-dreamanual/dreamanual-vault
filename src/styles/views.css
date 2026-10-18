@@ -258,20 +258,23 @@
 }
 
 .cat:hover {
+    /* 悬停不提字色：这里悬停与选中同底（见 .cat.on 的注释），字再一起提白
+       就和选中行难以区分了。反馈交给底色本身。 */
     background: var(--panel-3);
-    color: var(--ink);
 }
 
 .cat.on {
-    /* 实心主色底（2026-10-09 用户拍板）：accent-soft（950）与侧栏材质亮度太近，
-       描边/字色都救不回辨识度。
+    /* 二级导航 · 灰底白字轨（2026-10-18 对齐 NAS 资料库栏口径）：选中 panel-3 底
+       + ink 白字，实心主色块退出二级导航 —— accent-fill-2 + on-accent 是一级
+       导航（外壳侧栏）的待遇，本 app 没有外壳侧栏，分类列按二级导航走。
 
-       取的是**下一档** --accent-fill-2（blue-700）而不是 --accent-fill（600）：
-       选中行是一整条大面积实心块，600 档铺满一行偏亮；700 档压白字 6.3:1，
-       比 600 的 4.66:1 更宽松，视觉也沉得住。这一档在令牌表里原本只给实心块
-       悬停用，选中行按「大面积」单独取它。 */
-    background: var(--accent-fill-2);
-    color: var(--on-accent);
+       与 NAS 的差别：那边栏坐在 panel 底上，悬停能往下取 panel-2（悬停比选中
+       暗）；这边侧栏容器本身就是 panel-2（2026-10-09 拍板的 Finder 式层级，不动），
+       往下没有可见档位，所以悬停改为向上提亮到 panel-3 —— 与选中同底，区分
+       交给字重（600）与白字，悬停行字色不动。
+       字重 600 是这端特有的补偿，NAS 那边两态不同底、不需要。 */
+    background: var(--panel-3);
+    color: var(--ink);
     font-weight: 600;
 }
 
@@ -295,28 +298,16 @@
 }
 
 .cat.on .cat-n {
-    /* 实心主色底上徽章反白：on-accent 底 + accent-fill-2 字（与选中底同档），
-       transparent 保住 1px 边框宽度、行高不跳。 */
-    background: var(--on-accent);
-    color: var(--accent-fill-2);
-    border-color: transparent;
+    /* 灰底轨上徽章保持中性（panel 底 + line 边不动），只把数字提为 ink ——
+       对齐 NAS 资料库栏「选中行计数提白」。原先的反白徽章是配实心主色底来的，
+       底换了就一起退。 */
+    color: var(--ink);
 }
 
-/* 窗口失焦时的选中态。视频下载的 `SelectState.selectedInactive` 是同一档：
-   底色从实心 accent-fill 掉回 accent-soft（暗强调底），字保持 on-accent ——
-   亮度降一截、轮廓还在，比降到中性底可辨识（中性 panel-3 与材质亮度几乎
-   相同，实测选中行直接隐身）。字重不变（那边也只换色）。
-   class 由 main.ts 的 listenWindowActive 切。 */
-body.is-blurred .cat.on {
-    background: var(--accent-soft);
-    color: var(--on-accent);
-}
-
-body.is-blurred .cat.on .cat-n {
-    background: var(--on-accent);
-    color: var(--accent-soft);
-    border-color: transparent;
-}
+/* 灰底白字轨不做失焦降级（与 NAS `RailRowState` 一致）：选中态本身是中性灰，
+   没有主色需要往回收，亮度台阶在失焦下依然可辨。原先的 accent-soft 降级
+   是配实心主色底来的，随换轨一起删。class 由 main.ts 的 listenWindowActive 切，
+   侧栏内已无消费方。 */
 
 .cat-dot {
     width: 6px;
@@ -636,33 +627,18 @@ body.is-blurred .cat.on .cat-n {
     border: 1px solid transparent;
 }
 
+/* 列表行四态（设计系统第八节「列表行」）：选中 `panel-2` 底 + `accent-2` 主色字、
+   悬停抬到 `panel-3`。悬停取的是与选中相邻的另一档 —— 两态同色的话鼠标划过没有
+   任何反馈（NAS 助手 1.0.12 在 SwiftUI 里踩过同一个坑）。 */
 .item:hover {
-    background: var(--panel-2);
+    background: var(--panel-3);
 }
 
 .item.on {
-    background: var(--accent-soft);
-    border-color: var(--accent-line);
+    background: var(--panel-2);
 }
 
-.ava {
-    width: var(--ic-32);
-    height: var(--ic-32);
-    border-radius: var(--r-8);
-    display: grid;
-    place-items: center;
-    flex: none;
-    font-size: var(--fs-12);
-    font-weight: 700;
-    background: var(--panel-3);
-    color: var(--ink-2);
-    letter-spacing: -0.02em;
-    border: 1px solid var(--line);
-}
-
-.item.on .ava {
-    background: var(--panel);
-    border-color: var(--accent-line);
+.item.on .item-title {
     color: var(--accent-2);
 }
 
@@ -734,20 +710,6 @@ mark {
     display: flex;
     gap: var(--sp-14);
     align-items: flex-start;
-}
-
-.detail-ava {
-    width: var(--ic-44);
-    height: var(--ic-44);
-    border-radius: var(--r-12);
-    display: grid;
-    place-items: center;
-    font-size: var(--fs-17);
-    font-weight: 700;
-    background: var(--accent-soft);
-    color: var(--accent-2);
-    flex: none;
-    border: 1px solid var(--accent-line);
 }
 
 .detail-title {
@@ -948,21 +910,8 @@ mark {
     border-radius: 0 0 var(--r-8) var(--r-8);
 }
 
-/* 官网行：右侧域名可点（2026-10-17）。样式与 NAS / 投资监控的「官网」一致 ——
-   只有这串字是入口，整行不做整行命中；域名用强调浅档，压 panel-2 才够亮。 */
-.srow-url {
-    flex: none;
-    background: none;
-    border: 0;
-    padding: 0;
-    font-size: var(--fs-13);
-    color: var(--accent-2);
-    cursor: pointer;
-}
-
-.srow-url:hover {
-    text-decoration: underline;
-}
+/* 官网行 2026-10-18 换成整行热区（.srow-hit，见 .srow-link），域名全文收进
+   title 提示 —— 原先那串网址是整行最长的元素，撤掉了 .srow-url。 */
 
 .srow-k {
     flex: 1;
@@ -985,6 +934,36 @@ mark {
     white-space: nowrap;
 }
 
+/* 「文件位置」那行的路径（2026-10-19）。切片由 `pathParts()` 做，这里只管分色：
+   目录压暗、文件名提亮，前面那个 `…` 说明还有被省掉的层级。路径比副标题的
+   11.5 更密，取密集辅助档 11 + 等宽；两端都留得住才认得出「这是哪份文件」。 */
+.srow-path {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+    font-family: "SF Mono", ui-monospace, Menlo, monospace;
+    font-size: var(--fs-11);
+    line-height: 1.5;
+}
+
+.srow-path .m {
+    flex: none;
+    color: var(--ink-3);
+}
+
+.srow-path .d {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--ink-3);
+}
+
+.srow-path .f {
+    flex: none;
+    color: var(--ink-2);
+}
+
 .srow-ctl {
     flex: none;
     width: auto;
@@ -998,11 +977,49 @@ select.srow-ctl {
     font-size: var(--fs-13);
 }
 
-.srow-num {
-    width: 84px;
-    min-width: 0;
-    height: var(--ctl-32);
-    text-align: center;
+/* 下拉框的自绘箭头收在 base.css 的 select.inp（所有 select 共用一条，2026-10-18），
+   这里不再另写一份 —— 两处各画一个箭头，迟早画成两个样子。 */
+
+/* 容器分段（表单内紧凑互斥切换，第八节「分段控件」）：弹窗卡面是 panel-2，
+   容器按「卡内抬一档」取 panel-3；段高钉控件档 28、圆角 r6、段间距 2，
+   选中段实心 accent-fill + on-accent 字。KDF 换档弹窗用它选三档。 */
+.seg {
+    display: flex;
+    gap: var(--sp-2);
+    padding: var(--sp-2);
+    background: var(--panel-3);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-8);
+}
+
+.seg button {
+    flex: 1;
+    height: var(--ctl-28);
+    border: 0;
+    border-radius: var(--r-6);
+    background: transparent;
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--fs-12);
+    cursor: pointer;
+    transition: var(--mo-fast);
+}
+
+.seg button:hover {
+    color: var(--ink);
+}
+
+.seg button.on {
+    background: var(--accent-fill);
+    color: var(--on-accent);
+}
+
+/* 选中档位下方的说明（内存开销 / 本机耗时），随点击更新 */
+.seg-hint {
+    margin-top: var(--sp-6);
+    min-height: 15px;
+    font-size: var(--fs-11);
+    color: var(--ink-3);
 }
 
 /* 行内 ghost 按钮收进标准档 32（2026-10-10 方案 A）：原先继承 .btn 的 38，
@@ -1062,22 +1079,25 @@ select.srow-ctl {
     color: var(--ink-2);
 }
 
-/* 「请我喝杯咖啡」行悬停保持组底 panel-2：它的强调字是常亮的 accent-2，
-   压悬停底 panel-3 只有 4.08:1。悬停反馈由 chev 箭头转蓝承担。 */
-.srow-link .srow-hit:hover {
-    background: var(--panel-2);
+/* 整行链接行（官网 / 赞赏）悬停统一走通则：底抬 panel-3（2026-10-18）。
+   原先赞赏行豁免于通用悬停底（accent-2 压 panel-3 只有 3.93 不过 AA），
+   现在悬停时行首强调字与咖啡图标提到 --accent-ink（blue-300，压 panel-3
+   5.72 过线）—— 「悬停变亮」恰好也是「点了会跳出去」的正确反馈。 */
+.srow-hit:hover .srow-lead {
+    color: var(--accent-ink);
 }
 
-/* 右侧那个箭头表示「点了会离开本应用」，与「展开/收起」的 chevron 不是一回事。
-   它不跟着咖啡一起常亮：常态中性、划过来才变蓝 —— 「一进页面就是蓝的」说的是
-   「这是赞赏入口」，「划过才蓝的」说的是「点了会跳出去」，两件事。 */
-.srow-chev {
+/* 右侧那个外链图标（square-arrow-out-up-right，三端同款）表示「点了会离开本应用」，
+   与「展开/收起」的 chevron 不是一回事。它不跟着咖啡一起常亮：常态中性、划过来才变蓝
+   —— 「一进页面就是蓝的」说的是「这是赞赏入口」，「划过才蓝的」说的是「点了会跳出去」，
+   两件事。悬停时与行首强调字同提 --accent-ink：一行之内只允许一个悬停档，
+   400 档压 panel-3 只有 3.93，两个元素各提各的档就会深浅不一（2026-10-18 用户抓）。 */.srow-chev {
     flex: none;
     color: var(--ink-3);
 }
 
 .srow-hit:hover .srow-chev {
-    color: var(--accent-2);
+    color: var(--accent-ink);
 }
 
 /* 只读的值（「当前版本」那一格）。等宽数字，版本号从 v1.0.0 变成 v1.10.0 时那列不会左右跳 */

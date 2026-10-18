@@ -15,6 +15,7 @@ mod backup;
 mod clipboard;
 mod config;
 mod fileio;
+mod input_source;
 mod lock;
 mod menu;
 mod settings;
@@ -123,6 +124,8 @@ fn main() {
             vault::vault_save,
             vault::vault_set_path,
             vault::vault_default_path,
+            vault::vault_move_check,
+            vault::vault_move,
             settings::settings_get,
             settings::settings_update,
             settings::backup_status,
@@ -142,7 +145,8 @@ fn main() {
             clipboard::clipboard_status,
             update::app_version,
             update::open_external,
-            update::open_entry_url
+            update::open_entry_url,
+            input_source::ascii_input
         ])
         .manage(lock::AutoLock::new())
         .manage(clipboard::Clipboard::new())
@@ -183,6 +187,16 @@ fn main() {
                 // 与 base.css 的那条规则）。**不要再往这里加要前台的代码。**
             }
             let _ = std::io::stdout().flush();
+            // 输入法切换的自检：AI 点不了输入框，焦点那半只能人工点验；
+            // 这条通路让「切得动、读得回、还原得回去」可以被自动化核一遍。
+            //   起一次：VAULT_INPUT=switch ./Dreamanual\ 密码管理.app/Contents/MacOS/dreamanual-vault
+            if std::env::var("VAULT_INPUT").as_deref() == Ok("switch") {
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    let _ = handle.run_on_main_thread(input_source::smoke);
+                });
+            }
             // 两个计时线程都放在 Rust 侧：前端的定时器会被 WKWebView 节流，
             // 锁屏时更是整个页面进程被挂起（PRD 附录 K5）。见 lock.rs / clipboard.rs。
             lock::spawn(app.handle().clone());

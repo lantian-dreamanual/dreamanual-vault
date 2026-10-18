@@ -162,6 +162,64 @@ export async function vaultDefaultPath(): Promise<string> {
     return invoke<string>('vault_default_path');
 }
 
+/** 移动库文件前的即时校验结果。`block` 是原因码，界面据此决定显示哪条提示。 */
+export interface MoveCheck {
+    /** 目标目录 */
+    dir: string;
+    /** 目标文件的完整路径 */
+    target: string;
+    /** 文件名（搬动不改名） */
+    fileName: string;
+    /** `same-dir` / `missing` / `conflict` / `readonly`；可移动时为 null */
+    block: string | null;
+    /** 冲突时那份同名文件在哪 */
+    conflict: string | null;
+    /** 目标在另一块盘上，这一趟会久一些 */
+    crossDisk: boolean;
+    /** 目标在云盘同步目录里（只提醒，不拦） */
+    cloud: boolean;
+    /** 会一起搬走的历史版本份数 */
+    versions: number;
+}
+
+export interface MoveReport {
+    path: string;
+    versions: number;
+}
+
+/** 选完目标文件夹就调它：同目录 / 不存在 / 同名 / 不可写、跨盘、云盘、
+ *  历史版本份数，一次问清。 */
+export async function vaultMoveCheck(dir: string): Promise<MoveCheck> {
+    requireHost('检查目标位置');
+    return invoke<MoveCheck>('vault_move_check', { dir });
+}
+
+/** 把库文件与同目录的历史版本一起搬走，并把新位置记进配置。
+ *  **不锁库** —— 内容没变，主密码不用重输。 */
+export async function vaultMove(dir: string): Promise<MoveReport> {
+    requireHost('移动库文件');
+    return invoke<MoveReport>('vault_move', { dir });
+}
+
+/** 订阅移动进度（每搬完一个文件一次）。返回退订函数。
+ *
+ *  事件名与 Rust 侧 `vault::MOVE_PROGRESS_EVENT` 是同一个字符串。退订必须做：
+ *  这个监听只在一次移动期间有意义，留着的话下一次移动会收到两遍。 */
+export async function listenMoveProgress(
+    cb: (done: number, total: number) => void
+): Promise<() => void> {
+    if (!IN_TAURI) return () => undefined;
+    try {
+        const { listen } = await import('@tauri-apps/api/event');
+        return await listen<{ done: number; total: number }>('vault-move-progress', (ev) =>
+            cb(ev.payload.done, ev.payload.total)
+        );
+    } catch (err) {
+        reportError(`订阅移动进度失败：${String(err)}`);
+        return () => undefined;
+    }
+}
+
 /** 在访达中选中这个文件。
  *
  *  库文件放在 `~/Library/Application Support/` 下，而 Finder 默认隐藏 `~/Library`，
@@ -169,6 +227,19 @@ export async function vaultDefaultPath(): Promise<string> {
 export async function revealInFinder(path: string): Promise<void> {
     requireHost('在访达中显示');
     await revealItemInDir(path);
+}
+
+/** 密码框聚焦 / 失焦时切输入法（Rust 侧 `input_source`，TIS 的切换只在主线程做）。
+ *
+ *  为什么要做：中文输入法下打 `!` 得到全角「！」，长度一样、内容差一位，主密码
+ *  只会回「密码不对」，用户看不出差别。口径与 NAS 助手 `Core/InputSource.swift`
+ *  一致 —— 进字段切 ASCII、离开还原、已经在 ASCII 就不动。
+ *
+ *  失败一律静默：切输入法是个附加便利，报错弹窗只会打扰人。浏览器预览里直接
+ *  跳过（没有宿主）。 */
+export function asciiInput(on: boolean): void {
+    if (!IN_TAURI) return;
+    void invoke('ascii_input', { on }).catch(() => {});
 }
 
 // ------------------------------------------------------------------ 文件选择器
@@ -218,18 +289,24 @@ export async function pickNewVaultPath(defaultPath: string): Promise<string | nu
     return picked.toLowerCase().endsWith('.kdbx') ? picked : `${picked}.kdbx`;
 }
 
-/** 挑备份目录。取消时返回 null。
+/** 原生目录选择器。取消时返回 null。
  *
  *  用 `open` 的 `directory: true` —— capabilities 里 `dialog:allow-open` 已经覆盖，
- *  不需要为「选目录」再加一条权限。 */
-export async function pickBackupDir(): Promise<string | null> {
+ *  不需要为「选目录」再加一条权限。「移动库文件」与「备份目录」都用它，
+ *  只有标题不同。 */
+export async function pickFolder(title: string): Promise<string | null> {
     if (!IN_TAURI) return null;
     const picked = await openDialog({
-        title: '选择备份目录',
+        title,
         multiple: false,
         directory: true
     });
     return typeof picked === 'string' ? picked : null;
+}
+
+/** 挑备份目录。取消时返回 null。 */
+export async function pickBackupDir(): Promise<string | null> {
+    return pickFolder('选择备份目录');
 }
 
 // ------------------------------------------------------------------ 设置与备份
@@ -521,10 +598,10 @@ export async function listenMenu(cb: (action: string) => void): Promise<() => vo
 /**
  * 窗口是否处于活跃（key）状态。返回退订函数。
  *
- * 手写的选中态要自己接这个：窗口失焦时 `.cat.on` 的强调色该降一级
- * （见 views.css 的 `body.is-blurred` 那两条）。侧栏原先走系统绘制的选中底色，
- * 那层降级是免费带的；换成自绘就没了。视频下载的侧栏用
- * `NSWindow.didResignKeyNotification` 做同一件事。
+ * 手写的选中态要自己接这个：需要在失焦时变化的组件监听 `body.is-blurred`
+ * 即可（main.ts 全局切换）。原先唯一的消费方 `.cat.on` 失焦降级已随
+ * 2026-10-18 换轨删除 —— 灰底白字轨不做失焦降级。视频下载的侧栏用
+ * `NSWindow.didResignKeyNotification` 做类似的事。
  *
  * 先试 Tauri 的窗口焦点事件（语义与「窗口是不是 key」精确对应）；拿不到时退回
  * DOM 的 focus / blur —— 浏览器预览里只有这一条路，Tauri 里 WKWebView 失焦也会
