@@ -843,7 +843,9 @@ mark {
 /* ---------- 设置面板 ---------- */
 
 .settings-body {
-    padding: calc(var(--layout-titlebar) + var(--sp-20)) 30px 40px;
+    /* 顶部让位改由 `.settings-head` 自己承担 —— 页头要吸顶，垫高必须长在它身上：
+       长在外层的话，一滚起来标题就会贴到红绿灯那一条上。 */
+    padding: 0 30px 40px;
     max-width: 720px;
     /* 面板铺满整窗之后，内容块在窗口里**居中**（块内仍左对齐）。
        不加这条的话它贴着左边开始，而那 248px 正是侧栏的宽度 ——
@@ -851,12 +853,31 @@ mark {
     margin-inline: auto;
 }
 
+/* 页头吸顶（2026-10-19 用户报「滚到下半页就点不到关闭」）。
+ *
+ * 这一页唯一比窗口高的面板（内容 1100 多 / 视口 720），而出口只有右上角这个 ×：
+ * 它跟着内容滚走之后，退出的路只剩 Esc 与 ⌘, —— 焦点停在 select 上时 Esc
+ * 会被控件吃掉，等于滑到下半页就没法退。
+ *
+ * `top: 0` 只定吸附位置，红绿灯那 30px 靠**自身** `padding-top` 让出来：
+ * 吸住时标题行与出口仍在窗口顶 50px 处，与静止时同一水平线；那条带子最上面
+ * 的 50px 是纯 `--panel` 底，原生红绿灯浮在 webview 之上照常可用，
+ * `.drag-strip`（z-index 5）也仍压在页头之上，窗口照样能拖。
+ *
+ * 底色取 `--panel`：吸住时要从底下穿过的分组卡（`panel-2`）被它盖掉，
+ * 不能透出两层。间距从 `margin-bottom` 挪进 `padding-bottom` ——
+ * margin 不画底色，滚上去的内容会在那 24px 里露出一截。 */
 .settings-head {
-    margin-bottom: var(--sp-24);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--panel);
+    padding-top: calc(var(--layout-titlebar) + var(--sp-20));
+    padding-bottom: var(--sp-24);
 }
 
 /* 标题与出口同一行。出口做成图标按钮而不是文字按钮，为的是不把这一行加高 ——
-   面板本来就比窗口高（内容 1127 / 视口 720），每加一行都要从可滚区里扣。 */
+   面板本来就比窗口高（内容 1100 多 / 视口 720），每加一行都要从可滚区里扣。 */
 .settings-head-row {
     display: flex;
     align-items: center;
@@ -868,12 +889,6 @@ mark {
     font-size: var(--fs-20);
     font-weight: 650;
     letter-spacing: -0.015em;
-}
-
-.settings-sub {
-    font-size: var(--fs-12);
-    color: var(--ink-3);
-    margin-top: var(--sp-4);
 }
 
 .settings-group {
