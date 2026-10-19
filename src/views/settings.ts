@@ -106,7 +106,7 @@ export class SettingsView {
     /** 当前版本号，从宿主读一次就存着。它是二进制的属性，运行期间不会变。 */
     private currentVersion = '';
 
-    /** 发现新版本时的下载页地址。按钮在「下载更新」与「立即检查」两种语义间切换，
+    /** 发现新版本时的下载页地址。按钮在「前往下载」与「立即检查」两种语义间切换，
      *  这一格就是「当前按的是哪一种」——比每次去读按钮文案可靠。 */
     private pendingUpdate: string | null = null;
 
@@ -175,7 +175,7 @@ export class SettingsView {
     /** 「检查更新」。
      *
      *  这是应用自己发起的唯一一个网络请求，只在按下这一下发生 —— 没有启动检查，
-     *  也没有后台轮询。发现新版本之后按钮变成「下载更新」，点它去**下载页**而不是
+     *  也没有后台轮询。发现新版本之后按钮变成「前往下载」，点它去**下载页**而不是
      *  直接下 DMG：首次打开会被 Gatekeeper 拦下来，而页面上写了怎么处理。 */
     private async checkForUpdate(): Promise<void> {
         if (this.pendingUpdate) {
