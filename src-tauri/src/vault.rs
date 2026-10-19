@@ -297,17 +297,18 @@ pub struct MoveCheck {
 }
 
 /// 拦下原因对应的一句话。只做后端报错的兜底 —— 普通流程里界面先拦住了，
-/// 走不到这里。
+/// 走不到这里。措辞与前端 `move-dialog.ts` 的 `blockStrip()` 保持一致：
+/// 同一个原因在两处说成两句话，用户看不出这是同一件事。
 fn block_text(code: &str, file_name: &str, conflict: Option<&str>) -> String {
     match code {
-        "same-dir" => "库文件已经在这个文件夹里".to_string(),
-        "missing" => "目标文件夹不存在或打不开".to_string(),
+        "same-dir" => "库文件已经在这个文件夹里。请选择其他文件夹。".to_string(),
+        "missing" => "这个文件夹打不开。请选择其他文件夹。".to_string(),
         "conflict" => format!(
-            "该文件夹中已有同名文件：{}",
+            "这个文件夹里已有同名文件 {}。请选择其他文件夹，或先重命名该文件。",
             conflict.unwrap_or(file_name)
         ),
-        "readonly" => "目标文件夹不可写（权限不足）".to_string(),
-        _ => "无法移动库文件".to_string(),
+        "readonly" => "这个文件夹不能写入。请选择其他文件夹。".to_string(),
+        _ => "这个文件夹不能用来放库文件。请选择其他文件夹。".to_string(),
     }
 }
 

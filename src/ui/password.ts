@@ -45,10 +45,10 @@ const COMMON_WORDS = ['password', '123456', 'qwerty', 'admin', 'letmein', 'ilove
 /** 弱密码提示。**只警告不阻止**（PRD §4.3）—— 拦下来更像是找麻烦，而主密码是
  *  用户自己要记住的一串，替他做决定没有意义。返回 null 表示没意见。 */
 export function weaknessOf(password: string): string | null {
-    if (password.length < 12) return `只有 ${password.length} 位，建议 12 位以上`;
+    if (password.length < 12) return `只有 ${password.length} 位，至少 12 位`;
     const lower = password.toLowerCase();
     const hit = COMMON_WORDS.find((word) => lower.includes(word));
-    if (hit) return `包含常见词「${hit}」，容易被猜到`;
+    if (hit) return `包含常见词“${hit}”，容易被猜到`;
     if (/^(.)\1+$/.test(password)) return '全部是同一个字符';
     return null;
 }

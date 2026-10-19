@@ -248,7 +248,7 @@ export class EntryEditor {
 
     openEdit(entry: VaultEntry): void {
         this.editing = { ...entry };
-        this.titleEl.textContent = `编辑「${entry.title}」`;
+        this.titleEl.textContent = `编辑“${entry.title}”`;
         this.deleteBtn.classList.remove('hidden');
 
         this.inTitle.value = entry.title;
@@ -283,7 +283,7 @@ export class EntryEditor {
     private commit(): void {
         const title = this.inTitle.value.trim();
         if (!title) {
-            toast('标题不能为空', 'err');
+            toast('请输入标题', 'err');
             this.inTitle.focus();
             return;
         }

@@ -309,7 +309,7 @@ export class VaultSession implements VaultSessionApi {
      */
     renameVault(name: string): string {
         const trimmed = name.trim();
-        if (!trimmed) throw new Error('库名不能为空');
+        if (!trimmed) throw new Error('请输入库名');
 
         this.db.meta.name = trimmed;
         this.db.getDefaultGroup().name = trimmed;
@@ -417,7 +417,7 @@ export class VaultSession implements VaultSessionApi {
      *  放进任意色值就没人能保证它还看得见。 */
     setGroupColor(name: string, color: string | null): void {
         const target = this.groupByName(name);
-        if (!target) throw new Error(`找不到分类「${name}」`);
+        if (!target) throw new Error(`找不到分类“${name}”`);
         if (color !== null && !isDotColor(color)) throw new Error('这个颜色不在可选色板里');
 
         const map: KdbxwebNs.KdbxCustomDataMap = target.customData ?? new Map();
@@ -464,7 +464,7 @@ export class VaultSession implements VaultSessionApi {
         const trimmed = name.trim();
         if (!trimmed) throw new Error('分类名不能为空');
         if (trimmed === UNCATEGORIZED) return trimmed;
-        if (this.hasGroup(trimmed)) throw new Error(`分类「${trimmed}」已存在`);
+        if (this.hasGroup(trimmed)) throw new Error(`分类“${trimmed}”已存在`);
         this.db.createGroup(this.root(), trimmed);
         return trimmed;
     }
@@ -472,11 +472,11 @@ export class VaultSession implements VaultSessionApi {
     /** 改名。分类下的条目跟着走 —— 条目挂在组对象上，改的是组自己的名字。 */
     renameGroup(from: string, to: string): string {
         const target = this.groupByName(from);
-        if (!target) throw new Error(`找不到分类「${from}」`);
+        if (!target) throw new Error(`找不到分类“${from}”`);
         const trimmed = to.trim();
         if (!trimmed) throw new Error('分类名不能为空');
-        if (trimmed !== from && this.hasGroup(trimmed)) throw new Error(`分类「${trimmed}」已存在`);
-        if (from === UNCATEGORIZED) throw new Error('「未分类」不能改名');
+        if (trimmed !== from && this.hasGroup(trimmed)) throw new Error(`分类“${trimmed}”已存在`);
+        if (from === UNCATEGORIZED) throw new Error('“未分类”不能改名');
 
         target.name = trimmed;
         return trimmed;
@@ -484,9 +484,9 @@ export class VaultSession implements VaultSessionApi {
 
     /** 删分类。**里面的条目移入「未分类」**，不跟着删（PRD §3.4）。 */
     removeGroup(name: string): void {
-        if (name === UNCATEGORIZED) throw new Error('「未分类」不能删除');
+        if (name === UNCATEGORIZED) throw new Error('“未分类”不能删除');
         const target = this.groupByName(name);
-        if (!target) throw new Error(`找不到分类「${name}」`);
+        if (!target) throw new Error(`找不到分类“${name}”`);
 
         const fallback = this.ensureGroup(UNCATEGORIZED);
         for (const entry of [...target.entries]) this.db.move(entry, fallback);

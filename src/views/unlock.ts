@@ -124,8 +124,8 @@ export class UnlockView {
     private openVaultMenu(): void {
         const rect = this.vaultRow.getBoundingClientRect();
         const items: MenuItem[] = [
-            { label: '打开其他库…', onPick: () => void this.pickOther() },
-            { label: '新建保险箱…', onPick: () => void this.startCreate() }
+            { label: '切换密码库…', onPick: () => void this.pickOther() },
+            { label: '新建密码库…', onPick: () => void this.startCreate() }
         ];
         // 库还没建时没有可显示的目标，这一项不出现
         if (IN_TAURI && this.hasVault && Boolean(this.store.status().path)) {
@@ -165,8 +165,8 @@ export class UnlockView {
         this.message(
             exists ? this.openMsg : this.newMsg,
             exists
-                ? `已切换到 ${shortPath(picked)}，输入它的主密码`
-                : `${shortPath(picked)} 这个位置还没有库，将在此新建`
+                ? `已切换到 ${shortPath(picked)}，请输入它的主密码`
+                : `这个位置还没有库，会在这里新建`
         );
     }
 
@@ -252,7 +252,7 @@ export class UnlockView {
 
         const weak = weaknessOf(this.newPw.value);
         // 默认文案与 index.html 里 #new-pw-hint 的初始值同一句，改一处要改两处
-        this.newHint.textContent = this.newPw.value && weak ? weak : '用一句你记得住的话，越长越安全';
+        this.newHint.textContent = this.newPw.value && weak ? weak : '至少 12 位，用一句你记得住的话';
         this.newHint.classList.toggle('warn', Boolean(this.newPw.value) && Boolean(weak));
     }
 
@@ -286,7 +286,7 @@ export class UnlockView {
         // 底部这个按钮在两种状态下都有用：有库时回解锁页，没库时去挑别的库。
         // 文案跟着变而不是藏起来 —— 藏掉会让「手上有现成库」的用户困在建库卡片里。
         this.backFoot.classList.remove('hidden');
-        this.backBtn.textContent = this.hasVault ? '返回解锁' : '打开其他库';
+        this.backBtn.textContent = this.hasVault ? '返回解锁' : '切换密码库';
         this.message(this.newMsg, '');
         this.message(this.openMsg, '');
 
@@ -401,14 +401,14 @@ export class UnlockView {
 
         const name = this.newName.value.trim();
         if (!name) {
-            this.message(this.newMsg, '库名不能为空');
+            this.message(this.newMsg, '请输入库名');
             this.newName.focus();
             return;
         }
 
         const password = this.newPw.value;
         if (!password) {
-            this.message(this.newMsg, '请设置主密码');
+            this.message(this.newMsg, '请输入主密码');
             this.newPw.focus();
             return;
         }
@@ -427,7 +427,7 @@ export class UnlockView {
             const go = await confirmDialog({
                 title: '主密码偏弱',
                 body: `${weak}。\n\n主密码丢失后没有找回途径，请确认你记得住这一串。`,
-                confirmText: '就用这个',
+                confirmText: '仍然使用',
                 danger: true
             });
             if (!go) {

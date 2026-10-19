@@ -119,7 +119,7 @@
     <div class="lock-mark">
       <img src="/app-icon.jpg" alt="">
     </div>
-    <h1>新建保险箱</h1>
+    <h1>新建密码库</h1>
 
     <div class="field">
       <label for="new-name">库名<span class="req" aria-hidden="true">*</span></label>
@@ -145,20 +145,20 @@
       <div class="pw-grid">
         <div class="pw-col">
           <label for="new-pw">主密码<span class="req" aria-hidden="true">*</span></label>
-          <input class="inp pw-mask" type="text" id="new-pw" placeholder="建议 12 位以上" aria-required="true" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <input class="inp pw-mask" type="text" id="new-pw" aria-required="true" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
         </div>
         <div class="pw-col">
-          <label for="new-pw2">再输一遍<span class="req" aria-hidden="true">*</span></label>
+          <label for="new-pw2">再输一次<span class="req" aria-hidden="true">*</span></label>
           <input class="inp pw-mask" type="text" id="new-pw2" aria-required="true" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
         </div>
       </div>
       <div class="meter" id="new-pw-meter"><i></i></div>
       <!-- 这行有两个用途：空值时给方向，输入弱密码时被换掉。所以它得有默认文案。 -->
-      <div class="hint" id="new-pw-hint">用一句你记得住的话，越长越安全</div>
+      <div class="hint" id="new-pw-hint">至少 12 位，用一句你记得住的话</div>
     </div>
 
     <div class="field">
-      <label for="new-preset">解锁强度</label>
+      <label for="new-preset">KDF 强度档位</label>
       <select class="inp" id="new-preset">
         <option value="流畅">流畅 · 约 0.35 秒</option>
         <option value="均衡" selected>均衡 · 约 0.86 秒</option>
@@ -171,7 +171,7 @@
     <div class="bar is-idle" id="new-bar"><i></i></div>
 
     <div class="lock-actions">
-      <button class="btn btn-pri" id="new-submit">创建保险箱</button>
+      <button class="btn btn-pri" id="new-submit">创建密码库</button>
     </div>
 
     <!-- 库已存在时才显示：首次启动没有可返回的解锁页 -->
@@ -266,7 +266,7 @@
                且焦点停在 select 上时 Esc 会被控件吃掉。 -->
           <div class="settings-head-row">
             <h1>设置</h1>
-            <button class="icon-btn" id="set-close" type="button" title="返回保险箱（Esc）" aria-label="返回保险箱">
+            <button class="icon-btn" id="set-close" type="button" title="返回密码库（Esc）" aria-label="返回密码库">
               <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-x"/></svg>
             </button>
           </div>
@@ -277,7 +277,7 @@
         <section class="settings-group">
           <h2>安全</h2>
           <div class="srow">
-            <div class="srow-k"><b>自动锁定</b><span>无操作达到该时长后锁定保险箱</span></div>
+            <div class="srow-k"><b>自动锁定</b><span>超过这段时间没有操作就锁定</span></div>
             <select class="inp srow-ctl" id="set-autolock">
               <option value="1">1 分钟</option>
               <option value="5" selected>5 分钟</option>
@@ -287,7 +287,7 @@
             </select>
           </div>
           <div class="srow">
-            <div class="srow-k"><b>锁屏与休眠时锁定</b><span>系统锁屏或进入休眠立即锁定</span></div>
+            <div class="srow-k"><b>锁屏与休眠时锁定</b></div>
             <label class="switch"><input type="checkbox" id="set-lockonsleep" checked><i></i></label>
           </div>
           <div class="srow">
@@ -319,7 +319,7 @@
         <section class="settings-group">
           <h2>备份</h2>
           <div class="srow">
-            <div class="srow-k"><b>备份目录</b><span id="set-backup-path">未设置</span></div>
+            <div class="srow-k"><b>备份目录</b><span id="set-backup-path">尚未选择</span></div>
             <button class="btn btn-gho srow-ctl" id="set-backup-pick">选择…</button>
           </div>
           <div class="srow">
@@ -328,7 +328,7 @@
           </div>
           <div class="srow">
             <div class="srow-k"><b>上次备份成功</b><span id="set-backup-last">—</span></div>
-            <span class="pill" id="set-backup-state">未备份</span>
+            <span class="pill" id="set-backup-state">—</span>
           </div>
           <div class="srow">
             <!-- 上面「保存后自动镜像」已解释过镜像是什么，按钮名也说了「立即」。 -->
@@ -379,7 +379,7 @@
           </div>
           <div class="srow">
             <div class="srow-k"><b>切换密码库</b><span>当前库会先保存并锁定</span></div>
-            <button class="btn btn-gho srow-ctl" id="set-open-other">打开…</button>
+            <button class="btn btn-gho srow-ctl" id="set-open-other">切换…</button>
           </div>
         </section>
 
@@ -456,9 +456,9 @@
              （自定义字段系统已按 PRD §3.3 砍掉，备注留给多行信息）。
              占位文字原先写「留空则自动生成」—— 保存路径上从来没有生成这一步，
              留空只会得到一条没密码的条目。改成如实的后果说明。 -->
-        <label for="f-pw">密码 / 密钥</label>
+        <label for="f-pw">密码 / 密钥（可留空）</label>
         <div class="pw-wrap">
-          <input class="inp pw-mask" type="text" id="f-pw" placeholder="留空则不记录" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+          <input class="inp pw-mask" type="text" id="f-pw" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
           <div class="pw-tools">
             <button class="icon-btn" id="f-pw-reveal" title="显示 / 隐藏">
               <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-eye"/></svg>
@@ -477,7 +477,7 @@
       <div class="field">
         <label for="f-notes">备注</label>
         <textarea class="inp" id="f-notes" placeholder="连接命令、注意事项、申请单号…"></textarea>
-        <div class="hint">IP、端口、连接命令这类信息放备注，靠全文检索找回。</div>
+        <div class="hint">备注支持多行，靠全文检索找回。</div>
       </div>
     </div>
     <div class="modal-foot">

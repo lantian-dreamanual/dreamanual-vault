@@ -219,7 +219,7 @@ export class SettingsView {
                 set('已是最新版本', '');
                 break;
             case 'available':
-                this.checkUpdateBtn.textContent = '下载更新';
+                this.checkUpdateBtn.textContent = '前往下载';
                 set(`发现新版本 v${state.version}`, 'is-new');
                 break;
             case 'failed':
@@ -389,18 +389,19 @@ export class SettingsView {
     private async renameVault(): Promise<void> {
         const current = this.store.vaultName;
         const name = await promptDialog({
-            title: '重命名保险箱',
+            title: '重命名密码库',
             label: '新的库名',
             value: current,
             placeholder: '例如：公司凭据',
             // 一字未改就不必写一次盘。空值由 promptDialog 自己拦。
-            validate: (value) => (value === current ? '与当前库名相同' : null)
+            validate: (value) => (value === current ? '与当前库名相同' : null),
+            confirmText: '重命名'
         });
         if (!name || name === current) return;
 
         try {
             this.store.renameVault(name);
-            toast(`库名已改为「${name}」`, 'ok');
+            toast(`库名已改为“${name}”`, 'ok');
         } catch (err) {
             toast(`改库名失败：${errorText(err)}`, 'err', 3600);
         }
@@ -437,15 +438,17 @@ export class SettingsView {
         }
 
         const dir = st.dir;
-        this.backupPathEl.textContent = dir ? shortPath(dir) : '未设置';
-        this.backupPathEl.title = dir ?? '还没有选择备份目录';
+        this.backupPathEl.textContent = dir ? shortPath(dir) : '尚未选择';
+        this.backupPathEl.title = dir ?? '尚未选择备份目录';
         // 「立即备份」在没设备份目录时点不动，否则按下去只会弹一句「还没有设置备份目录」
         this.backupNowBtn.disabled = !st.configured;
+        // 设过之后这颗按钮点开的是菜单（更改 / 清除），叫「选择…」名不副实
+        this.backupPickBtn.textContent = st.configured ? '更改…' : '选择…';
 
         if (!st.configured) {
-            pill.textContent = '未设置备份目录';
+            pill.textContent = '未启用';
             pill.classList.add('warn');
-            this.backupLastEl.textContent = '备份目录确定前不产生备份';
+            this.backupLastEl.textContent = '—';
             return;
         }
 
@@ -462,7 +465,7 @@ export class SettingsView {
             // 刚配好还没触发过保存。这与「成功过但过期了」要分开说，
             // 否则刚设完就被告知「超过 24 小时未成功」是在吓人
             pill.textContent = '等待首次备份';
-            this.backupLastEl.textContent = '下一次保存或点「立即备份」时镜像';
+            this.backupLastEl.textContent = '保存或立即备份后开始';
             return;
         }
 
@@ -493,10 +496,9 @@ export class SettingsView {
             if (o.unchanged) {
                 toast('备份目录里已是最新，没有产生新的历史版本', 'info', 3600);
             } else {
-                const extra = o.rotated
-                    ? ` · 旧版本存为 ${o.rotated}${o.pruned ? ` · 清理 ${o.pruned} 份` : ''}`
-                    : '';
-                toast(`已备份 ${formatSize(o.bytes)} → ${shortPath(o.dest)}${extra}`, 'ok', 4200);
+                // 成功提示是最松的一档：报大小与去处就够。轮转出的历史版本文件名
+                // 对用户没有意义 —— 要找回旧版本是在设置页看份数，不是记文件名。
+                toast(`已备份 ${formatSize(o.bytes)} 到 ${shortPath(o.dest)}`, 'ok', 3600);
             }
         }
     }
@@ -560,11 +562,11 @@ export class SettingsView {
         const current = this.store.status().path;
         if (current && picked !== current) {
             const ok = await confirmDialog({
-                title: '打开其他库',
+                title: '切换密码库',
                 body:
                     `将切换到：\n${picked}\n\n当前库会先保存，然后锁定。` +
                     `以后要回到 ${shortPath(current)} 需要重新输入它的主密码。`,
-                confirmText: '打开'
+                confirmText: '切换'
             });
             if (!ok) return;
         }
@@ -581,7 +583,7 @@ export class SettingsView {
     /** 切回默认位置。那边有没有库由换完之后的分流决定 —— 可能进解锁，也可能进建库。 */
     private async useDefault(): Promise<void> {
         const ok = await confirmDialog({
-            title: '用默认位置',
+            title: '切回默认位置',
             body: '将切回默认位置。当前库会先保存，然后锁定。',
             confirmText: '切换'
         });
@@ -645,7 +647,7 @@ export class SettingsView {
         this.backupNowBtn.addEventListener('click', () => void this.backupNow());
 
         this.backupAutoEl.addEventListener('change', () => {
-            void this.patch({ backupAuto: this.backupAutoEl.checked }, '保存「自动镜像」开关失败');
+            void this.patch({ backupAuto: this.backupAutoEl.checked }, '保存“自动镜像”开关失败');
         });
 
         // 历史版本上限：预设档下拉（1/3/5/10/20/50）。原先是个数字框，
@@ -812,7 +814,7 @@ export class SettingsView {
             this.kdfChangeBtn,
             '更改…',
             () => this.store.changePreset(out.pw, target),
-            `已按「${target}」重建库`
+            `已按“${target}”档重建库`
         );
     }
 
@@ -847,7 +849,8 @@ export class SettingsView {
             const ok = await confirmDialog({
                 title: '主密码偏弱',
                 body: `${weak}。\n\n主密码丢失后没有找回途径，请确认你记得住这一串。`,
-                confirmText: '仍然使用'
+                confirmText: '仍然使用',
+                danger: true
             });
             if (!ok) return;
         }

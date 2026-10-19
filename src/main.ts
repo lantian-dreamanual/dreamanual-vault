@@ -97,8 +97,8 @@ function setSettingsOpen(open: boolean): void {
     // 底栏那个齿轮同时是「打开设置」与「回到保险箱」，用点亮态表示后者。
     // 位置固定、图标不变，顺带还是 ⌘, 在界面上的唯一可见提示。
     btnSettings.classList.toggle('is-on', open);
-    btnSettings.title = open ? '返回保险箱（⌘,）' : '设置（⌘,）';
-    btnSettings.setAttribute('aria-label', open ? '返回保险箱' : '设置');
+    btnSettings.title = open ? '返回密码库（⌘,）' : '设置（⌘,）';
+    btnSettings.setAttribute('aria-label', open ? '返回密码库' : '设置');
     btnNewEntry.disabled = open;
     // 面板上的值来自 config.json，而备份状态等在面板关着的时候也会变
     // （每次保存都会镜像一次）。所以要现读一次，而不是拿上次打开时的快照。
@@ -165,8 +165,8 @@ function saveEntry(entry: VaultEntry): void {
 
 async function removeEntry(entry: VaultEntry): Promise<void> {
     const ok = await confirmDialog({
-        title: '删除条目',
-        body: `确定删除「${entry.title}」吗？该条目会移入回收站，可在回收站里恢复。`,
+        title: `删除“${entry.title}”？`,
+        body: '会移入回收站，可在回收站里恢复。',
         confirmText: '删除',
         danger: true
     });
@@ -186,7 +186,7 @@ async function askGroup(from: string | null): Promise<GroupDraft | undefined> {
         name: from ?? '',
         color: from ? (store.groupColors()[from] ?? null) : null,
         validate: (value) =>
-            value !== from && store.groups().includes(value) ? `分类「${value}」已经存在` : null
+            value !== from && store.groups().includes(value) ? `分类“${value}”已存在` : null
     });
 }
 
@@ -197,7 +197,7 @@ async function newGroup(): Promise<void> {
     try {
         const created = store.createGroup(draft.name, draft.color);
         vault.selectGroup(created);
-        toast(`已新建分类「${created}」`, 'ok');
+        toast(`已新建分类“${created}”`, 'ok');
     } catch (err) {
         toast(errorText(err), 'err', 2600);
     }
@@ -214,7 +214,7 @@ async function createGroupForEditor(): Promise<string | null> {
 
     try {
         const created = store.createGroup(draft.name, draft.color);
-        toast(`已新建分类「${created}」`, 'ok');
+        toast(`已新建分类“${created}”`, 'ok');
         return created;
     } catch (err) {
         toast(errorText(err), 'err', 2600);
@@ -241,8 +241,8 @@ async function editGroup(from: string): Promise<void> {
         if (renamed) vault.selectGroup(final);
         vault.refresh();
 
-        if (renamed && recolored) toast(`已更新分类「${final}」`, 'ok');
-        else if (renamed) toast(`已改名为「${final}」`, 'ok');
+        if (renamed && recolored) toast(`已更新分类“${final}”`, 'ok');
+        else if (renamed) toast(`已改名为“${final}”`, 'ok');
         else if (draft.color) toast('已设置颜色', 'ok');
         else toast('已改回自动色', 'ok');
     } catch (err) {
@@ -253,10 +253,10 @@ async function editGroup(from: string): Promise<void> {
 async function deleteGroup(name: string): Promise<void> {
     const count = store.groupCounts().get(name) ?? 0;
     const ok = await confirmDialog({
-        title: '删除分类',
+        title: `删除分类“${name}”？`,
         body: count
-            ? `分类「${name}」里的 ${count} 条会移入「未分类」，不会被删除。`
-            : `确定删除空分类「${name}」吗？`,
+            ? `分类“${name}”里的 ${count} 条会移入“未分类”，不会被删除。`
+            : '这个分类是空的，删除后不能撤销。',
         confirmText: '删除',
         danger: true
     });
@@ -265,7 +265,7 @@ async function deleteGroup(name: string): Promise<void> {
     try {
         store.removeGroup(name);
         vault.selectGroup(ALL_GROUP);
-        toast(`已删除分类「${name}」`, 'ok');
+        toast(`已删除分类“${name}”`, 'ok');
     } catch (err) {
         toast(errorText(err), 'err', 2600);
     }
@@ -407,7 +407,7 @@ must('#set-close').addEventListener('click', () => setSettingsOpen(false));
 btnVault.addEventListener('click', () => {
     const rect = btnVault.getBoundingClientRect();
     const items: MenuItem[] = [
-        { label: '打开其他库…', onPick: () => settingsView?.openOtherVault() },
+        { label: '切换密码库…', onPick: () => settingsView?.openOtherVault() },
         { label: '在访达中显示', onPick: () => settingsView?.revealVault() }
     ];
     // 「用默认位置」只在真的指向了别处时才出现，否则它点下去没有任何变化
@@ -424,7 +424,7 @@ btnVault.addEventListener('click', () => {
 let lastSaveError: string | null = null;
 let saveHideTimer: number | null = null;
 /** 上一次渲染过的保存状态。store 的订阅还会因库名、条目数等别的变化触发，
-    只比这个字段才能分辨「真的又保存了一次」和「其它东西变了」——
+    只比这个字段才能分辨“真的又保存了一次”和“其它东西变了”——
     否则状态位会被无关的订阅反复点亮。 */
 let lastSaveState: string | null = null;
 
@@ -467,7 +467,7 @@ store.subscribe((status) => {
             break;
         case 'error':
             saveFlagEl.innerHTML = icons.saveOff();
-            saveFlagEl.title = '保存失败，改动暂存在内存里';
+            saveFlagEl.title = '保存失败，改动只在内存里，退出会丢失';
             saveFlagEl.classList.add('is-error', 'is-on');
             if (status.error && status.error !== lastSaveError) {
                 lastSaveError = status.error;

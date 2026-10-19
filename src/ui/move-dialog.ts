@@ -43,11 +43,11 @@ function blockStrip(check: MoveCheck): string {
         case 'missing':
             return `这个文件夹打不开。请选择其他文件夹。`;
         case 'conflict':
-            return `该文件夹中已有同名文件 ${name}。请选择其他文件夹，或先重命名该文件。`;
+            return `这个文件夹里已有同名文件 ${name}。请选择其他文件夹，或先重命名该文件。`;
         case 'readonly':
-            return `无法写入这个文件夹（权限不足）。请选择其他文件夹。`;
+            return `这个文件夹不能写入。请选择其他文件夹。`;
         default:
-            return `这个位置不能用来放库文件。请选择其他文件夹。`;
+            return `这个文件夹不能用来放库文件。请选择其他文件夹。`;
     }
 }
 
@@ -62,6 +62,30 @@ function moveNote(fileName: string, versions: number): string {
 function strip(kind: 'info' | 'warn' | 'danger', text: string): string {
     const icon = kind === 'danger' || kind === 'warn' ? icons.alert(14) : icons.info(14);
     return `<div class="strip ${kind}">${icon}<div>${text}</div></div>`;
+}
+
+/** 失败原因 → 一句人话。
+ *
+ *  后端报的是「哪一步、哪个文件、什么 errno」，那是给排查用的。界面只留
+ *  结论与出口，原文挂到弹窗正文的 title 上 —— 要用时悬停看得到，平时不占版面。
+ *  这一层不能少：`移动失败：/path（os error 13）` 与前端那句前缀叠在一起，
+ *  会拼出「移动失败。移动失败：…」。 */
+function failureText(raw: string): string {
+    // 后端 preflight 兜底的拦截串已经是给人看的话（与 blockStrip 同一份措辞），
+    // 原样透出，不要再包一层「移动没有完成」。
+    if (raw.includes('请选择其他文件夹')) return escapeHtml(raw);
+    const why = /Permission denied|os error 13/.test(raw)
+        ? '没有写入这个文件夹的权限。'
+        : /No space left|os error 28/.test(raw)
+          ? '这个磁盘没有足够空间。'
+          : /校验/.test(raw)
+            ? '复制之后校验没通过，文件可能已损坏。'
+            : '移动没有完成。';
+    // 回滚卡住时才有文件留在新位置，那时不能说「还在原位置」
+    const where = raw.includes('没能退回原处')
+        ? '有文件没能退回原处，请到访达里确认。'
+        : '库文件还在原位置。';
+    return `${escapeHtml(why)}${where}`;
 }
 
 export function moveVaultDialog(options: MoveDialogOptions): Promise<MoveOutcome | null> {
@@ -129,7 +153,7 @@ export function moveVaultDialog(options: MoveDialogOptions): Promise<MoveOutcome
         const pick = async (): Promise<void> => {
             let dir: string | null;
             try {
-                dir = await pickFolder('选择新的文件夹');
+                dir = await pickFolder('选择目标文件夹');
             } catch {
                 return;
             }
@@ -150,14 +174,16 @@ export function moveVaultDialog(options: MoveDialogOptions): Promise<MoveOutcome
         // ------------------------------------------------------------ 执行中
 
         const renderRunning = (done: number | null, total: number): void => {
-            // 主库加历史版本只有一份时（total = 1）不必报数，报了也是「1/1」
+            // 主库加历史版本只有一份时（total = 1）不必报数，报了也是「1/1」；
+            // 这时也没有什么「历史版本」可提 —— 上一屏刚说过「同目录没有其他历史版本」。
             const counting = total > 1 && done !== null;
+            const what = total > 1 ? '正在移动库文件与历史版本' : '正在移动库文件';
             body.innerHTML =
                 `<div class="mv-steps">` +
                 `<div class="mv-step is-done"><span class="ico">${icons.stepDone(16)}</span>已保存当前改动</div>` +
                 `<div class="mv-step is-now"><span class="ico is-spin">${icons.stepNow(16)}</span>` +
-                `正在移动库文件与历史版本${counting ? `（${done}/${total}）` : '…'}</div>` +
-                `<div class="mv-step"><span class="ico">${icons.stepNext(16)}</span>完成切换</div>` +
+                `${what}${counting ? `（${done}/${total}）` : '…'}</div>` +
+                `<div class="mv-step"><span class="ico">${icons.stepNext(16)}</span>完成移动</div>` +
                 `</div>`;
         };
 
@@ -165,7 +191,9 @@ export function moveVaultDialog(options: MoveDialogOptions): Promise<MoveOutcome
 
         const renderFailure = (reason: string): void => {
             running = false;
-            body.innerHTML = strip('danger', `移动失败。${escapeHtml(reason)}`);
+            body.innerHTML = strip('danger', failureText(reason));
+            // 原始原因（含 errno 与路径）挂在这里，排查时悬停能看全，平时不上界面
+            body.title = reason;
             // 失败之后只剩「关闭」一个出口：库还在原位置，重试要重新选目标。
             // 页脚在执行中被藏起来了，这里必须显回来 —— 否则「关闭」是个
             // display: none 的按钮，弹窗只剩右上角那个小叉。

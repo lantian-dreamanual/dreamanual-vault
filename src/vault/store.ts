@@ -184,7 +184,7 @@ export class VaultStore {
 
     /** 已解锁的会话。未解锁时抛错，避免界面拿着 null 到处判空。 */
     session(): VaultSessionApi {
-        if (!this.api) throw new Error('保险箱还没有解锁');
+        if (!this.api) throw new Error('密码库还没有解锁');
         return this.api;
     }
 

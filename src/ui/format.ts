@@ -71,7 +71,7 @@ export function vaultDisplayName(name: string, path: string): string {
     return file || '—';
 }
 
-/** RFC3339 时间戳 → 「今天 18:30」/「09-20 18:30」/「2025-09-20 18:30」。
+/** RFC3339 时间戳 → 「今天 18:30」/「9月20日 18:30」/「2025年9月20日 18:30」。
  *
  *  「上次备份成功」那一格用它。日期不能省：那条信息的作用就是看它有多久没动，
  *  只显示时分的话，隔了三天的备份看起来和十分钟前的一样新。 */
@@ -81,7 +81,7 @@ export function friendlyTime(iso: string, now = new Date()): string {
 
     const hm = clockTime(d.getTime());
     const sameYear = d.getFullYear() === now.getFullYear();
-    const md = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const md = `${d.getMonth() + 1}月${d.getDate()}日`;
 
     if (
         sameYear &&
@@ -90,5 +90,5 @@ export function friendlyTime(iso: string, now = new Date()): string {
     ) {
         return `今天 ${hm}`;
     }
-    return sameYear ? `${md} ${hm}` : `${d.getFullYear()}-${md} ${hm}`;
+    return sameYear ? `${md} ${hm}` : `${d.getFullYear()}年${md} ${hm}`;
 }

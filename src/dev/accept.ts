@@ -164,8 +164,8 @@ export async function runAcceptance(
         '解锁页的「当前库」点得开菜单，换库与建库都在里面（底部的旧入口已撤）',
         Boolean(vaultRow) &&
             oldFootGone &&
-            vaultMenu.some((l) => l.includes('打开其他库')) &&
-            vaultMenu.some((l) => l.includes('新建保险箱')),
+            vaultMenu.some((l) => l.includes('切换密码库')) &&
+            vaultMenu.some((l) => l.includes('新建密码库')),
         !vaultRow
             ? '找不到 #lock-vault'
             : `底部旧入口已撤=${oldFootGone} · 菜单 ${
@@ -1336,7 +1336,7 @@ export async function runAcceptance(
             rowTitle('set-export') === '导出副本' &&
             !rowSub('set-export') &&
             rowTitle('set-open-other') === '切换密码库' &&
-            document.querySelector('#set-open-other')?.textContent === '打开…' &&
+            document.querySelector('#set-open-other')?.textContent === '切换…' &&
             pwIdx >= 0 &&
             pwIdx === kdfIdx - 1;
 
@@ -2245,8 +2245,8 @@ export async function runAcceptance(
             const plainNew = textOf(newMsg);
             check(
                 'A33',
-                '对照：非组合态的回车照常触发（解锁提示「请输入主密码」、建库提示「库名不能为空」）',
-                plainLock.includes('请输入主密码') && plainNew.includes('库名不能为空'),
+                '对照：非组合态的回车照常触发（解锁提示「请输入主密码」、建库提示「请输入库名」）',
+                plainLock.includes('请输入主密码') && plainNew.includes('请输入库名'),
                 `解锁提示「${plainLock || '(空)'}」 · 建库提示「${plainNew || '(空)'}」`
             );
             resetCards();

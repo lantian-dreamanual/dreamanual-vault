@@ -121,7 +121,7 @@ export class MemorySession implements VaultSessionApi {
 
     /* 内存预览不加密也不落盘。这两个方法存在的意义是让设置页那两处控件
        **能被完整点一遍**（F7.5 / F7.6）—— 没有它们，浏览器里 `npm run dev`
-       点「应用」会抛「未实现」，而那不是真实链路的错。
+       点“应用”会抛“未实现”，而那不是真实链路的错。
        改主密码在这里没有落点：预览会话不持有凭据，没有东西可改。
        真要验证这两条链路，只能在应用里走 `VAULT_DEV=accept`。 */
 
@@ -136,7 +136,7 @@ export class MemorySession implements VaultSessionApi {
     /** 预览里只动这一个字段 —— 真实库里那份同名副本在 KDBX 的顶层分组上。 */
     renameVault(name: string): string {
         const trimmed = name.trim();
-        if (!trimmed) throw new Error('库名不能为空');
+        if (!trimmed) throw new Error('请输入库名');
         this.name = trimmed;
         return trimmed;
     }
@@ -144,18 +144,18 @@ export class MemorySession implements VaultSessionApi {
     createGroup(name: string): string {
         const trimmed = name.trim();
         if (!trimmed) throw new Error('分类名不能为空');
-        if (this.cats.includes(trimmed)) throw new Error(`分类「${trimmed}」已存在`);
+        if (this.cats.includes(trimmed)) throw new Error(`分类“${trimmed}”已存在`);
         this.cats.push(trimmed);
         return trimmed;
     }
 
     renameGroup(from: string, to: string): string {
         const trimmed = to.trim();
-        if (from === UNCATEGORIZED) throw new Error('「未分类」不能改名');
+        if (from === UNCATEGORIZED) throw new Error('“未分类”不能改名');
         if (!trimmed) throw new Error('分类名不能为空');
         const at = this.cats.indexOf(from);
-        if (at < 0) throw new Error(`找不到分类「${from}」`);
-        if (trimmed !== from && this.cats.includes(trimmed)) throw new Error(`分类「${trimmed}」已存在`);
+        if (at < 0) throw new Error(`找不到分类“${from}”`);
+        if (trimmed !== from && this.cats.includes(trimmed)) throw new Error(`分类“${trimmed}”已存在`);
 
         this.cats[at] = trimmed;
         for (const item of this.items) if (item.group === from) item.group = trimmed;
@@ -174,9 +174,9 @@ export class MemorySession implements VaultSessionApi {
     }
 
     removeGroup(name: string): void {
-        if (name === UNCATEGORIZED) throw new Error('「未分类」不能删除');
+        if (name === UNCATEGORIZED) throw new Error('“未分类”不能删除');
         const at = this.cats.indexOf(name);
-        if (at < 0) throw new Error(`找不到分类「${name}」`);
+        if (at < 0) throw new Error(`找不到分类“${name}”`);
         this.cats.splice(at, 1);
         for (const item of this.items) if (item.group === name) item.group = UNCATEGORIZED;
         this.colors.delete(name);
@@ -184,7 +184,7 @@ export class MemorySession implements VaultSessionApi {
     }
 
     setGroupColor(name: string, color: string | null): void {
-        if (!this.cats.includes(name)) throw new Error(`找不到分类「${name}」`);
+        if (!this.cats.includes(name)) throw new Error(`找不到分类“${name}”`);
         if (color !== null && !isDotColor(color)) throw new Error('这个颜色不在可选色板里');
         if (color === null) this.colors.delete(name);
         else this.colors.set(name, color);

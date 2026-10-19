@@ -253,7 +253,7 @@ const KDBX_FILTER = [{ name: 'KeePass 数据库', extensions: ['kdbx'] }];
 export async function pickVaultFile(): Promise<string | null> {
     if (!IN_TAURI) return null;
     const picked = await openDialog({
-        title: '打开其他库',
+        title: '切换密码库',
         multiple: false,
         directory: false,
         filters: KDBX_FILTER

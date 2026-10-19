@@ -206,9 +206,12 @@ export class VaultView {
         const list = this.visible();
 
         if (!list.length) {
+            // 空态要有出口：只说「空」等于把问题留给用户自己猜（规范第六节）。
+            // 搜索无结果与分类为空是两件事，出口也不一样 —— 前者改关键词，
+            // 后者建条目。
             this.listEl.innerHTML = this.query
-                ? `<div class="empty">没有匹配「${highlight(this.query, '')}」的条目</div>`
-                : `<div class="empty">这个分类还是空的</div>`;
+                ? `<div class="empty">没有匹配“${highlight(this.query, '')}”的条目<br>换个关键词，或清掉搜索</div>`
+                : `<div class="empty">这个分类还没有条目<br>按 ⌘N 新建</div>`;
         } else {
             const current = this.selected();
             // 条目行可聚焦。列表是这个应用的主界面，键盘 Tab 能走到分类行和各个
@@ -237,9 +240,9 @@ export class VaultView {
     private renderDetail(): void {
         const entry = this.selected();
         if (!entry) {
-            this.detailEl.innerHTML = this.query
-                ? `<div class="detail-empty">没有选中条目<br>换个搜索词试试</div>`
-                : `<div class="detail-empty">左侧选一条查看详情<br>或按 ⌘N 新建</div>`;
+            // 搜索结果里有条目、只是没选中时，「换个搜索词」是把人往错方向带：
+            // 这里只说他能做什么，搜索无结果的那句话由左侧列表自己说。
+            this.detailEl.innerHTML = `<div class="detail-empty">选一条查看详情<br>或按 ⌘N 新建</div>`;
             return;
         }
 
@@ -538,13 +541,15 @@ export class VaultView {
 
     private async copy(value: string): Promise<void> {
         if (!value.trim()) {
-            toast('这一项是空的', 'err');
+            toast('这一项没有内容可复制', 'err');
             return;
         }
         try {
             await navigator.clipboard.writeText(value);
         } catch {
-            toast('复制失败', 'err');
+            // 写剪贴板被系统拒了。给一条用户自己能走的路 —— 只报「复制失败」
+            // 等于把他留在原地。
+            toast('复制失败，请手动选中文字复制', 'err');
             return;
         }
 
