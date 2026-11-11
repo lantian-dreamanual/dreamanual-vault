@@ -22,6 +22,8 @@
     --accent-fill-2: #1447e6;
     --on-accent: #ffffff;
     --accent-ink: #8ec5ff;
+    --danger-600: #e7000b;
+    --danger-700: #c10007;
     --danger: #fb2c36;
     --danger-soft: #460809;
     --danger-line: #9f0712;
@@ -78,6 +80,7 @@
     --fs-20: 20px;
     --fs-28: 28px;
     --fs-34: 34px;
+    --fs-44: 44px;
     --ic-10: 10px;
     --ic-12: 12px;
     --ic-14: 14px;
@@ -93,6 +96,7 @@
     --ctl-38: 38px;
     --lw-hairline: 0.5px;
     --lw-base: 1px;
+    --lw-sel: 2px;
     --lw-bold: 3px;
     --mo-fast: 0.14s;
     --mo-base: 0.22s;
