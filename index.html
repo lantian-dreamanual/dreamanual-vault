@@ -160,9 +160,9 @@
     <div class="field">
       <label for="new-preset">KDF 强度档位</label>
       <select class="inp" id="new-preset">
-        <option value="流畅">流畅 · 约 0.35 秒</option>
-        <option value="均衡" selected>均衡 · 约 0.86 秒</option>
-        <option value="安全">安全 · 约 1.6 秒</option>
+        <option value="流畅">流畅 约 0.35 秒</option>
+        <option value="均衡" selected>均衡 约 0.86 秒</option>
+        <option value="安全">安全 约 1.6 秒</option>
       </select>
       <div class="hint">参数写进库文件，换档需要重建库</div>
     </div>
@@ -212,10 +212,10 @@
           <span class="vault-name" id="vault-name">—</span>
         </button>
         <span class="save-flag" id="save-flag" role="status" aria-live="polite"></span>
-        <button class="icon-btn" id="btn-lock" type="button" title="锁定（⌘L）" aria-label="锁定">
+        <button class="icon-btn" id="btn-lock" type="button" title="锁定" aria-label="锁定">
           <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-lock"/></svg>
         </button>
-        <button class="icon-btn" id="btn-settings" type="button" title="设置（⌘,）" aria-label="设置">
+        <button class="icon-btn" id="btn-settings" type="button" title="设置" aria-label="设置">
           <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-settings"/></svg>
         </button>
       </div>
@@ -233,11 +233,11 @@
           <div class="search-wrap">
             <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-search"/></svg>
             <input class="search" id="search" placeholder="搜索标题、账号、备注…" autocomplete="off" spellcheck="false">
-            <button class="search-clear hidden" id="search-clear" title="清空（Esc）">
+            <button class="search-clear hidden" id="search-clear" title="清空搜索" aria-label="清空搜索">
               <svg width="12" height="12" viewBox="0 0 24 24" stroke-width="3" aria-hidden="true"><use href="#ic-x"/></svg>
             </button>
           </div>
-          <button class="icon-btn" id="btn-new-entry" type="button" title="新建条目（⌘N）" aria-label="新建条目">
+          <button class="icon-btn" id="btn-new-entry" type="button" title="新建条目" aria-label="新建条目">
             <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-plus"/></svg>
           </button>
         </div>
@@ -266,7 +266,7 @@
                且焦点停在 select 上时 Esc 会被控件吃掉。 -->
           <div class="settings-head-row">
             <h1>设置</h1>
-            <button class="icon-btn" id="set-close" type="button" title="返回密码库（Esc）" aria-label="返回密码库">
+            <button class="icon-btn" id="set-close" type="button" title="返回密码库" aria-label="返回密码库">
               <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-x"/></svg>
             </button>
           </div>
@@ -436,7 +436,7 @@
   <div class="modal">
     <div class="modal-head">
       <h2 id="editor-title">新建条目</h2>
-      <button class="icon-btn" id="editor-close">
+      <button class="icon-btn" id="editor-close" title="关闭" aria-label="关闭">
         <svg width="16" height="16" viewBox="0 0 24 24" stroke-width="2.25" aria-hidden="true"><use href="#ic-x"/></svg>
       </button>
     </div>
@@ -454,18 +454,16 @@
         <input class="inp" id="f-user" placeholder="用户名 / 邮箱 / 工号" autocomplete="off" spellcheck="false">
       </div>
       <div class="field">
-        <!-- 这一栏不只装密码：应用只显示一次的 API key / 恢复码也落在这里
-             （自定义字段系统已按 PRD §3.3 砍掉，备注留给多行信息）。
-             占位文字原先写「留空则自动生成」—— 保存路径上从来没有生成这一步，
-             留空只会得到一条没密码的条目。改成如实的后果说明。 -->
-        <label for="f-pw">密码 / 密钥（可留空）</label>
+        <!-- 这一栏也装应用只显示一次的 API key / 恢复码（自定义字段系统已按
+             PRD §3.3 砍掉，备注留给多行信息）。 -->
+        <label for="f-pw">密码 / 密钥</label>
         <div class="pw-wrap">
           <input class="inp pw-mask" type="text" id="f-pw" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
           <div class="pw-tools">
-            <button class="icon-btn" id="f-pw-reveal" title="显示 / 隐藏">
+            <button class="icon-btn" id="f-pw-reveal" title="显示 / 隐藏" aria-label="显示 / 隐藏">
               <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-eye"/></svg>
             </button>
-            <button class="icon-btn" id="f-pw-gen" title="生成随机密码">
+            <button class="icon-btn" id="f-pw-gen" title="生成随机密码" aria-label="生成随机密码">
               <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2.571" aria-hidden="true"><use href="#ic-refresh-cw"/></svg>
             </button>
           </div>

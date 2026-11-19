@@ -302,7 +302,7 @@ pub struct MoveCheck {
 fn block_text(code: &str, file_name: &str, conflict: Option<&str>) -> String {
     match code {
         "same-dir" => "库文件已经在这个文件夹里。请选择其他文件夹。".to_string(),
-        "missing" => "这个文件夹打不开。请选择其他文件夹。".to_string(),
+        "missing" => "此文件夹无法打开。请选择其他文件夹。".to_string(),
         "conflict" => format!(
             "这个文件夹里已有同名文件 {}。请选择其他文件夹，或先重命名该文件。",
             conflict.unwrap_or(file_name)

@@ -71,6 +71,16 @@ function samePath(a: string, b: string): boolean {
     return norm(a) === norm(b);
 }
 
+/** 写盘与重建的失败：技术原文只进日志，界面与状态里只留一句能判定原因的中文。
+ *
+ *  底层的文件错误、数据解码错误与库解析错误都会从这条链冒上来，
+ *  原文带本机路径与引擎报错，摆到提示里用户没法照着做。 */
+function uiFailure(reason: string, err: unknown): string {
+    const detail = err instanceof Error ? err.message : String(err);
+    reportError(`[vault] ${reason}：${detail}`);
+    return reason;
+}
+
 export { samePath };
 
 export interface CreateRequest {
@@ -200,7 +210,7 @@ export class VaultStore {
 
         const info = await vaultInfo(target);
         if (info.exists) {
-            throw new Error(`这个位置已经有一个库了：${info.path}`);
+            throw new Error('这个位置已经有一个库了，请选择其他位置');
         }
 
         const started = performance.now();
@@ -232,7 +242,7 @@ export class VaultStore {
 
     async open(password: string, path?: string): Promise<void> {
         const info = await vaultInfo(path);
-        if (!info.exists) throw new Error(`找不到库文件：${info.path}`);
+        if (!info.exists) throw new Error('找不到库文件，请重新选择库文件位置');
 
         // 解锁耗时是 M2 的验收读数之一。构成见 PRD §4.2：KDF 占绝大部分，
         // 解密 + 解压 + 解析只有几毫秒。
@@ -413,9 +423,8 @@ export class VaultStore {
         try {
             await this.commitBytes(await api.toBytes());
         } catch (err) {
-            this.error = err instanceof Error ? err.message : String(err);
+            this.error = uiFailure('库文件无法写入，请检查库文件所在文件夹的权限后重试', err);
             this.saveState = 'error';
-            reportError(`保存库失败：${this.error}`);
         }
 
         this.notify();
@@ -540,7 +549,10 @@ export class VaultStore {
 
             // ④ 落盘之前先证明这串字节能开
             const problem = inspect(await VaultSession.open(bytes, nextPassword));
-            if (problem) throw new Error(`${problem}，已放弃写入`);
+            if (problem) {
+                reportError(`[vault] 重建前校验未通过：${problem}`);
+                throw new Error('校验未通过，改动未写入，请重试');
+            }
 
             // ⑤ 写盘。写的是刚验过的那串字节，所以不走 save()
             this.saveState = 'saving';
@@ -548,11 +560,9 @@ export class VaultStore {
             try {
                 await this.commitBytes(bytes);
             } catch (err) {
-                const detail = err instanceof Error ? err.message : String(err);
                 await this.restore(before, current);
-                this.error = `重建后的库没能写进磁盘：${detail}`;
+                this.error = uiFailure('库文件无法写入，改动已回到操作前的状态，请检查文件夹权限后重试', err);
                 this.saveState = 'error';
-                reportError(this.error);
                 this.notify();
                 throw new Error(this.error);
             }
@@ -563,18 +573,24 @@ export class VaultStore {
                 const back = inspect(await VaultSession.open(await vaultRead(path), nextPassword));
                 if (back) throw new Error(back);
             } catch (err) {
-                const detail = err instanceof Error ? err.message : String(err);
                 // 磁盘上那份开不了。把改动前的内容写回主库位置 —— 第 ⑤ 步已经把它存成
                 // 历史版本了，但历史目录里那份不能直接用。
+                let restored = true;
                 try {
                     await vaultWrite(before, path);
-                } catch {
-                    /* 回写也失败，错误信息里如实说明 */
+                } catch (writeErr) {
+                    restored = false;
+                    const detail = writeErr instanceof Error ? writeErr.message : String(writeErr);
+                    reportError(`[vault] 回写改动前的库失败：${detail}`);
                 }
                 await this.restore(before, current);
-                this.error = `写盘之后回读校验失败：${detail}`;
+                this.error = uiFailure(
+                    restored
+                        ? '写入后的库文件无法打开，改动前的库已还原，请重试'
+                        : '写入后的库文件无法打开，改动前的库还原失败，请在访达中检查库文件后再重试',
+                    err
+                );
                 this.saveState = 'error';
-                reportError(this.error);
                 this.notify();
                 throw new Error(this.error);
             }

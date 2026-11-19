@@ -21,7 +21,8 @@ export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
         mask.className = 'mask';
         mask.innerHTML =
             `<div class="modal" style="max-width:390px">` +
-            `<div class="modal-head"><h2>${escapeHtml(title)}</h2></div>` +
+            `<div class="modal-head"><h2>${escapeHtml(title)}</h2>` +
+            `<button class="icon-btn" type="button" data-role="close" title="关闭" aria-label="关闭">${icons.close()}</button></div>` +
             `<div class="modal-body"><div class="block-v" style="padding-bottom:14px">${escapeHtml(body)}</div></div>` +
             `<div class="modal-foot">` +
             `<button class="btn btn-gho" data-role="cancel">${escapeHtml(cancelText)}</button>` +
@@ -54,7 +55,7 @@ export function confirmDialog(options: ConfirmOptions): Promise<boolean> {
             const target = ev.target as HTMLElement;
             const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
             if (role === 'ok') finish(true);
-            if (role === 'cancel') finish(false);
+            if (role === 'cancel' || role === 'close') finish(false);
         });
 
         document.addEventListener('keydown', onKey, true);
@@ -95,7 +96,8 @@ export function promptDialog(options: PromptOptions): Promise<string | null> {
         mask.className = 'mask';
         mask.innerHTML =
             `<div class="modal" style="max-width:390px">` +
-            `<div class="modal-head"><h2>${escapeHtml(title)}</h2></div>` +
+            `<div class="modal-head"><h2>${escapeHtml(title)}</h2>` +
+            `<button class="icon-btn" type="button" data-role="close" title="关闭" aria-label="关闭">${icons.close()}</button></div>` +
             `<div class="modal-body">` +
             (label ? `<div class="field"><label for="prompt-inp">${escapeHtml(label)}</label>` : '<div class="field">') +
             `<input class="inp" id="prompt-inp" autocomplete="off" spellcheck="false" ` +
@@ -146,7 +148,7 @@ export function promptDialog(options: PromptOptions): Promise<string | null> {
             const target = ev.target as HTMLElement;
             const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
             if (role === 'ok') submit();
-            if (role === 'cancel') finish(null);
+            if (role === 'cancel' || role === 'close') finish(null);
         });
 
         input.addEventListener('input', () => {
@@ -258,7 +260,8 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
 
         mask.innerHTML =
             `<div class="modal" style="max-width:400px">` +
-            `<div class="modal-head"><h2>${escapeHtml(title)}</h2></div>` +
+            `<div class="modal-head"><h2>${escapeHtml(title)}</h2>` +
+            `<button class="icon-btn" type="button" data-role="close" title="关闭" aria-label="关闭">${icons.close()}</button></div>` +
             `<div class="modal-body">` +
             (body ? `<div class="block-v" style="padding-bottom:12px">${escapeHtml(body)}</div>` : '') +
             segRows +
@@ -342,7 +345,7 @@ export function secretDialog(options: SecretDialogOptions): Promise<Record<strin
             const target = ev.target as HTMLElement;
             const role = target.closest<HTMLElement>('[data-role]')?.dataset.role;
             if (role === 'ok') submit();
-            if (role === 'cancel') finish(null);
+            if (role === 'cancel' || role === 'close') finish(null);
         });
 
         // 眼睛：与编辑弹窗同一个路数 —— 换图标，然后重放一次关键帧。

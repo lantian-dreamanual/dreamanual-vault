@@ -12,6 +12,7 @@
 
 import { DOT_COLORS, isDotColor } from '../vault/model';
 import { escapeHtml, isComposing, onBackdropClose } from './dom';
+import { icons } from './icons';
 
 export interface GroupDraft {
     name: string;
@@ -54,7 +55,8 @@ export function groupDialog(options: GroupDialogOptions): Promise<GroupDraft | u
 
         mask.innerHTML =
             `<div class="modal" style="max-width:420px">` +
-            `<div class="modal-head"><h2>${escapeHtml(title)}</h2></div>` +
+            `<div class="modal-head"><h2>${escapeHtml(title)}</h2>` +
+            `<button class="icon-btn" type="button" data-role="close" title="关闭" aria-label="关闭">${icons.close()}</button></div>` +
             `<div class="modal-body">` +
             `<div class="field"><label for="group-name">分类名</label>` +
             `<input class="inp" id="group-name" autocomplete="off" spellcheck="false" ` +
@@ -120,7 +122,7 @@ export function groupDialog(options: GroupDialogOptions): Promise<GroupDraft | u
                 submit();
                 return;
             }
-            if (role === 'cancel') {
+            if (role === 'cancel' || role === 'close') {
                 finish(undefined);
                 return;
             }

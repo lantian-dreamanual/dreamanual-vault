@@ -26,7 +26,7 @@ import type { PresetName } from './kdf';
  * 而界面不该为了一个错误类型去 import 加密封装层。 */
 export class WrongPasswordError extends Error {
     constructor() {
-        super('主密码不正确');
+        super('无法解锁，请重试');
         this.name = 'WrongPasswordError';
     }
 }

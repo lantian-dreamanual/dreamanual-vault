@@ -41,7 +41,7 @@ function blockStrip(check: MoveCheck): string {
         case 'same-dir':
             return `库文件已经在这个文件夹里。请选择其他文件夹。`;
         case 'missing':
-            return `这个文件夹打不开。请选择其他文件夹。`;
+            return `此文件夹无法打开。请选择其他文件夹。`;
         case 'conflict':
             return `这个文件夹里已有同名文件 ${name}。请选择其他文件夹，或先重命名该文件。`;
         case 'readonly':
@@ -55,8 +55,8 @@ function blockStrip(check: MoveCheck): string {
 function moveNote(fileName: string, versions: number): string {
     const name = `<b>${escapeHtml(fileName)}</b>`;
     return versions > 0
-        ? `会一起移动 ${name} 与同目录的 <b>${versions} 份历史版本</b>。`
-        : `会移动 ${name}。同目录没有其他历史版本。`;
+        ? `${name} 与同目录的 <b>${versions} 份历史版本</b> 会一起移动`
+        : `${name} 会移动，同目录没有其他历史版本`;
 }
 
 function strip(kind: 'info' | 'warn' | 'danger', text: string): string {
@@ -72,19 +72,19 @@ function strip(kind: 'info' | 'warn' | 'danger', text: string): string {
  *  会拼出「移动失败。移动失败：…」。 */
 function failureText(raw: string): string {
     // 后端 preflight 兜底的拦截串已经是给人看的话（与 blockStrip 同一份措辞），
-    // 原样透出，不要再包一层「移动没有完成」。
+    // 原样透出，不要再包一层「移动失败」。
     if (raw.includes('请选择其他文件夹')) return escapeHtml(raw);
     const why = /Permission denied|os error 13/.test(raw)
-        ? '没有写入这个文件夹的权限。'
+        ? '没有写入这个文件夹的权限'
         : /No space left|os error 28/.test(raw)
-          ? '这个磁盘没有足够空间。'
+          ? '这个磁盘没有足够空间'
           : /校验/.test(raw)
-            ? '复制之后校验没通过，文件可能已损坏。'
-            : '移动没有完成。';
+            ? '复制校验失败，请重试'
+            : '移动失败，请重试';
     // 回滚卡住时才有文件留在新位置，那时不能说「还在原位置」
     const where = raw.includes('没能退回原处')
-        ? '有文件没能退回原处，请到访达里确认。'
-        : '库文件还在原位置。';
+        ? '部分文件未能退回，请到访达中确认'
+        : '库文件还在原位置';
     return `${escapeHtml(why)}${where}`;
 }
 
@@ -140,7 +140,7 @@ export function moveVaultDialog(options: MoveDialogOptions): Promise<MoveOutcome
                 `<div class="mv-path">${escapeHtml(source)}</div>` +
                 `<div class="mv-lbl">移到</div>` +
                 `<div class="mv-target">` +
-                `<button class="btn btn-gho" type="button" data-role="pick">${picked ? '重新选择…' : '选择文件夹…'}</button>` +
+                `<button class="btn btn-gho" type="button" data-role="pick">${picked ? '重新选择' : '选择文件夹'}</button>` +
                 `<span class="mv-val${picked ? '' : ' is-empty'}">${picked ? escapeHtml(target!) : '尚未选择'}</span>` +
                 `</div>` +
                 (blocked ? strip('danger', blockStrip(check!)) : notes.join('')) +

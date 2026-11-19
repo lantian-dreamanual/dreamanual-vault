@@ -34,6 +34,7 @@
  *   - 加密算法读 header.dataCipherUuid.id，没有 header.cipher 这个属性 */
 
 import type * as KdbxwebNs from 'kdbxweb';
+import { reportError } from '../host';
 import { argon2ImplWebview } from './argon2';
 import { KDF_PRESETS, presetToKdfParams, type PresetName } from './kdf';
 import { UNCATEGORIZED, isDotColor, normalizeDotColor, type VaultEntry } from './model';
@@ -90,7 +91,9 @@ export function describeEngine(): EngineInfo {
 
 // ------------------------------------------------------------------ 错误
 
-/** 把 kdbxweb 抛出的东西收敛成本项目自己的两种错误，其余原样透传。 */
+/** 把 kdbxweb 抛出的东西收敛成本项目自己的两种错误，其余给一句能判定原因的中文。
+ *  技术原文（引擎报错、版本串、字段键名）只进日志：界面层直接读 `err.message`，
+ *  摆原文用户没法照着做。 */
 function translate(err: unknown): Error {
     const code = (err as { code?: string } | null)?.code;
     const message = err instanceof Error ? err.message : String(err);
@@ -104,9 +107,11 @@ function translate(err: unknown): Error {
             return new VaultFormatError('库文件已损坏，无法解析');
         case 'InvalidVersion':
         case 'Unsupported':
-            return new VaultFormatError(`这个 KDBX 版本暂不支持：${message}`);
+            reportError(`[kdbx] 库格式暂不支持：${message}`);
+            return new VaultFormatError('库文件格式暂不支持，请重新选择库文件');
         default:
-            return err instanceof Error ? err : new Error(message);
+            reportError(`[kdbx] 打开库失败：${message}`);
+            return new Error('库文件打开失败，请重新选择库文件');
     }
 }
 
@@ -546,7 +551,7 @@ export class VaultSession implements VaultSessionApi {
 
     updateEntry(input: VaultEntry): VaultEntry {
         const entry = this.index().get(input.id);
-        if (!entry) throw new Error('这条记录已经不在库里了，可能已在别处被删除');
+        if (!entry) throw new Error('这条记录已经不在库里了');
 
         setEntryFields(entry, input);
 

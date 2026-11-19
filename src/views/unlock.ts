@@ -9,6 +9,7 @@
 
 import { confirmDialog } from '../ui/confirm';
 import { isComposing, must } from '../ui/dom';
+import { userFacingError as errorText } from '../ui/errors';
 import { formatSize, shortPath } from '../ui/format';
 import { contextMenu, type MenuItem } from '../ui/menu';
 import {
@@ -19,15 +20,8 @@ import {
     vaultDefaultPath
 } from '../host';
 import type { PresetName } from '../vault/kdf';
-import { VaultFormatError, WrongPasswordError } from '../vault/session';
 import { samePath, type VaultStore } from '../vault/store';
 import { passwordScore, weaknessOf } from '../ui/password';
-
-function errorText(err: unknown): string {
-    if (err instanceof WrongPasswordError) return '主密码不正确';
-    if (err instanceof VaultFormatError) return err.message;
-    return err instanceof Error ? err.message : String(err);
-}
 
 export class UnlockView {
     // 解锁卡片
@@ -313,7 +307,7 @@ export class UnlockView {
 
         if (!IN_TAURI) {
             // 浏览器预览没有宿主，走内存数据。这条分支只为调界面存在。
-            this.pathHint.textContent = '浏览器预览 · 数据不落盘';
+            this.pathHint.textContent = '浏览器预览，数据不落盘';
             this.showCreate(false);
             this.openPw.value = 'preview';
             this.message(this.openMsg, '预览模式：直接解锁');
@@ -329,7 +323,7 @@ export class UnlockView {
             // 把主密码框与按钮整体往下顶。要看全路径有设置页「主库位置」那一行，
             // 要定位文件点开这一行的菜单即可。
             this.pathHint.textContent = info.exists
-                ? `${shortPath(info.path)} · ${formatSize(info.size)}`
+                ? `${shortPath(info.path)} ${formatSize(info.size)}`
                 : shortPath(info.path);
             // 这里原先在位置取自配置时追加一句「（来自「打开其他库」）」。删掉了 ——
             // 「打开其他库」是个按钮名，把它当库的来源讲不成话；而库落在哪，

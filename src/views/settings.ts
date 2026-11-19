@@ -14,6 +14,7 @@
 
 import { confirmDialog, promptDialog, secretDialog } from '../ui/confirm';
 import { escapeHtml, must, toast } from '../ui/dom';
+import { userFacingError as errorText } from '../ui/errors';
 import {
     exportFileName,
     formatSize,
@@ -45,17 +46,11 @@ import {
     type BackupStatus
 } from '../host';
 import { DEFAULT_PRESET, KDF_PRESETS, PRESET_NAMES, type PresetName } from '../vault/kdf';
-import { WrongPasswordError } from '../vault/session';
 import type { VaultStore } from '../vault/store';
 
 export interface SettingsHost {
     /** 换库之后当前会话已经断开，界面要退回解锁页并重新分流 */
     onVaultSwitched: () => void;
-}
-
-function errorText(err: unknown): string {
-    if (err instanceof WrongPasswordError) return '主密码不正确';
-    return err instanceof Error ? err.message : String(err);
 }
 
 /** 官网上的应用页（works 下单独一页）。发版与文案改动只改页面，不动客户端。 */
@@ -183,7 +178,7 @@ export class SettingsView {
             return;
         }
         if (!IN_TAURI) {
-            toast('浏览器预览里检查不了更新，请在应用里试', 'info');
+            toast('此功能仅在应用内可用', 'info');
             return;
         }
         if (!this.currentVersion) await this.renderVersion();
@@ -269,7 +264,7 @@ export class SettingsView {
     /** 写一项设置。只传改动的那一项 —— 整份覆盖会冲掉 Rust 刚写的时间戳。 */
     private async patch(fields: Record<string, unknown>, failHint: string): Promise<void> {
         if (!IN_TAURI) {
-            toast('浏览器预览里改不了设置，请在应用里试', 'info');
+            toast('此功能仅在应用内可用', 'info');
             return;
         }
         try {
@@ -336,7 +331,7 @@ export class SettingsView {
         // 目录压暗、文件名提亮，前面补一个省略号 —— 位置行只回答「这是哪份文件」。
         // 完整路径进 title：要复制、要核对的时候还得有全文。
         const parts = pathParts(status.path);
-        const size = status.exists && status.size > 0 ? ` · ${formatSize(status.size)}` : '';
+        const size = status.exists && status.size > 0 ? ` ${formatSize(status.size)}` : '';
         el.innerHTML =
             (parts.clipped ? '<span class="m">…</span>' : '') +
             (parts.dir ? `<span class="d">/${escapeHtml(parts.dir)}</span>` : '') +
@@ -457,7 +452,7 @@ export class SettingsView {
             pill.textContent = st.stale ? '超过 24 小时未成功' : '上次备份失败';
             pill.classList.add('bad');
             const last = st.lastAt ? friendlyTime(st.lastAt) : '从未成功';
-            this.backupLastEl.textContent = `${last} · ${st.lastError}`;
+            this.backupLastEl.textContent = `${last} ${st.lastError}`;
             return;
         }
 
@@ -484,7 +479,8 @@ export class SettingsView {
     /** 报告一次备份的结果。**失败不是保存失败**，提示语要写清楚这一点。 */
     private reportBackup(run: Awaited<ReturnType<typeof backupRun>>): void {
         if (run.error) {
-            toast(`备份失败（库已保存）：${run.error}`, 'err', 5200);
+            console.error('[backup]', run.error);
+            toast(`备份失败，库已保存。${run.error}`, 'err', 5200);
             return;
         }
         if (run.skipped) {
@@ -541,7 +537,7 @@ export class SettingsView {
         });
         if (!outcome) return;
 
-        const extra = outcome.versions > 0 ? ` · 历史版本 ${outcome.versions} 份一起移过去` : '';
+        const extra = outcome.versions > 0 ? `，同目录的 ${outcome.versions} 份历史版本已一起移动` : '';
         toast(`已移动到 ${shortPath(outcome.path)}${extra}`, 'ok', 4600);
         // 位置行与副标题跟着变；保存状态与备份状态没变，不必整块重读
         this.renderVaultPath();
@@ -769,7 +765,7 @@ export class SettingsView {
 
         const h = this.store.session().header();
         this.kdfCurrentEl.textContent = h.preset
-            ? `当前库：${h.preset} · ${h.memoryMiB} MiB`
+            ? `当前库：${h.preset}，${h.memoryMiB} MiB`
             : // 第三方库可能落在三档之外。如实报参数，别硬套一个档位名
               `当前库：文件自带参数 ${h.memoryMiB} MiB / ${h.iterations} 轮`;
     }
@@ -798,7 +794,7 @@ export class SettingsView {
                     value: curName,
                     describe: (value) => {
                         const p = KDF_PRESETS[value as PresetName];
-                        return `${p.memoryMiB} MiB 内存 · 本机解锁约 ${(p.measuredInWebviewMs / 1000).toFixed(1)} 秒`;
+                        return `${p.memoryMiB} MiB 内存，本机解锁约 ${(p.measuredInWebviewMs / 1000).toFixed(1)} 秒`;
                     }
                 }
             ],
@@ -831,8 +827,8 @@ export class SettingsView {
             title: '修改主密码',
             body:
                 '会用新主密码把整个库重新加密一次。改完之后：\n' +
-                '· 本地历史版本与备份目录里的旧副本，仍然只能用旧主密码打开\n' +
-                '· 主密码丢失后没有找回途径',
+                '本地历史版本与备份目录里的旧副本，仍然只能用旧主密码打开\n' +
+                '主密码丢失后没有找回途径',
             fields: [
                 { id: 'old', label: '当前主密码' },
                 { id: 'next', label: '新主密码' },

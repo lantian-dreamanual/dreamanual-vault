@@ -75,7 +75,7 @@ impl LockReason {
         match self {
             LockReason::Idle => "长时间未操作，已锁定",
             LockReason::Slept => "电脑休眠过，已锁定",
-            LockReason::Session => "系统已锁屏，保险箱随之锁定",
+            LockReason::Session => "系统已锁屏，已锁定",
         }
     }
 }

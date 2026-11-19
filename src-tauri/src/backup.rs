@@ -209,7 +209,10 @@ pub fn rotate_existing(target: &Path, keep: usize) -> Result<(Option<String>, us
 ///
 /// 与 [`mirror`] 的区别是这里不复制新内容 —— 新内容由紧接着的写入带进去。
 pub fn snapshot_local(vault: &Path, keep: usize) -> Result<Option<String>, String> {
-    let (version, _) = rotate_existing(vault, keep)?;
+    let (version, _) = rotate_existing(vault, keep).map_err(|e| {
+        eprintln!("[backup] 本地快照失败：{e}");
+        "历史版本无法写入，请检查库文件所在文件夹的权限".to_string()
+    })?;
     Ok(version)
 }
 
@@ -227,18 +230,23 @@ pub fn snapshot_local(vault: &Path, keep: usize) -> Result<Option<String>, Strin
 /// 备份目录里会堆出一串一模一样的 `.bak`，真正有用的那几份被顶掉。
 pub fn mirror(src: &Path, backup_dir: &Path, keep: usize) -> Result<BackupOutcome, String> {
     if !src.exists() {
-        return Err(format!("主库文件不存在，无法备份：{}", src.display()));
+        eprintln!("[backup] 主库文件不存在：{}", src.display());
+        return Err("主库文件不存在，请检查库文件位置".to_string());
     }
     if !backup_dir.is_dir() {
-        return Err(format!(
-            "备份目录不可用（Synology Drive 客户端可能没运行或没登录）：{}",
-            backup_dir.display()
-        ));
+        eprintln!("[backup] 备份目录不可用：{}", backup_dir.display());
+        return Err("备份目录不可用，请检查 Synology Drive 客户端是否已运行".to_string());
     }
 
-    let base = base_name(src)?;
+    let base = base_name(src).map_err(|e| {
+        eprintln!("[backup] 路径没有文件名：{e}");
+        "备份路径无法识别，请重新选择备份目录".to_string()
+    })?;
     let dest = backup_dir.join(&base);
-    let bytes = fs::read(src).map_err(|e| format!("读主库失败：{}（{}）", src.display(), e))?;
+    let bytes = fs::read(src).map_err(|e| {
+        eprintln!("[backup] 读主库失败 {}：{e}", src.display());
+        "主库文件无法读取，请重试".to_string()
+    })?;
 
     if let Ok(existing) = fs::read(&dest) {
         if existing == bytes {
@@ -252,10 +260,15 @@ pub fn mirror(src: &Path, backup_dir: &Path, keep: usize) -> Result<BackupOutcom
         }
     }
 
-    let (rotated, pruned) = rotate_existing(&dest, keep)?;
+    let (rotated, pruned) = rotate_existing(&dest, keep).map_err(|e| {
+        eprintln!("[backup] 历史版本轮转失败：{e}");
+        "历史版本无法写入，请检查备份目录".to_string()
+    })?;
 
-    fileio::copy_via_tmp(src, &dest)
-        .map_err(|e| format!("写入备份失败：{}（{}）", dest.display(), e))?;
+    fileio::copy_via_tmp(src, &dest).map_err(|e| {
+        eprintln!("[backup] 写入备份失败 {}：{e}", dest.display());
+        "备份目录无法写入，请检查文件夹权限".to_string()
+    })?;
 
     Ok(BackupOutcome {
         dest: dest.to_string_lossy().into_owned(),
@@ -340,7 +353,7 @@ pub fn run_from_config(dir: &Path, src: &Path, manual: bool) -> BackupRun {
     let skipped = if cfg.backup_dir.is_none() {
         Some("还没有设置备份目录".to_string())
     } else if !manual && !cfg.backup_auto {
-        Some("「保存后自动镜像」已关闭".to_string())
+        Some("“保存后自动镜像”已关闭".to_string())
     } else {
         None
     };
@@ -755,7 +768,7 @@ mod tests {
         .unwrap();
 
         let auto = run_from_config(&dir, &src, false);
-        assert_eq!(auto.skipped.as_deref(), Some("「保存后自动镜像」已关闭"));
+        assert_eq!(auto.skipped.as_deref(), Some("“保存后自动镜像”已关闭"));
         assert!(!backup.join("vault.kdbx").exists());
 
         // 「立即备份」按钮不受这个开关约束 —— 用户按它的时候意图是明确的

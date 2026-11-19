@@ -560,7 +560,7 @@ export class VaultView {
         // 计时没起来不该让提示变成「复制失败」：东西已经复制上了，那是另一件事。
         try {
             const st = await clipboardArm();
-            toast(st.seconds > 0 ? `已复制 · ${st.seconds} 秒后自动清空` : '已复制', 'ok');
+            toast(st.seconds > 0 ? `已复制，${st.seconds} 秒后自动清空` : '已复制', 'ok');
         } catch (err) {
             reportError(`剪贴板计时未启动：${String(err)}`);
             toast('已复制', 'ok');
@@ -576,7 +576,8 @@ export class VaultView {
         try {
             await openEntryUrl(url);
         } catch (err) {
-            toast(`打开失败：${err instanceof Error ? err.message : String(err)}`, 'err');
+            console.error('[open-url]', err);
+            toast('无法打开链接，请检查地址', 'err');
         }
     }
 

@@ -17,6 +17,7 @@ import './styles/base.css';
 import './styles/views.css';
 
 import { isComposing, must, toast } from './ui/dom';
+import { errorDetail, userFacingError as errorText } from './ui/errors';
 import { icons } from './ui/icons';
 import { clockTime, vaultDisplayName } from './ui/format';
 import { confirmDialog } from './ui/confirm';
@@ -242,7 +243,7 @@ async function editGroup(from: string): Promise<void> {
         vault.refresh();
 
         if (renamed && recolored) toast(`已更新分类“${final}”`, 'ok');
-        else if (renamed) toast(`已改名为“${final}”`, 'ok');
+        else if (renamed) toast(`已重命名为“${final}”`, 'ok');
         else if (draft.color) toast('已设置颜色', 'ok');
         else toast('已改回自动色', 'ok');
     } catch (err) {
@@ -255,8 +256,8 @@ async function deleteGroup(name: string): Promise<void> {
     const ok = await confirmDialog({
         title: `删除分类“${name}”？`,
         body: count
-            ? `分类“${name}”里的 ${count} 条会移入“未分类”，不会被删除。`
-            : '这个分类是空的，删除后不能撤销。',
+            ? `删除后不能撤销，${count} 条会移入“未分类”`
+            : '这个分类是空的，删除后不能撤销',
         confirmText: '删除',
         danger: true
     });
@@ -356,7 +357,7 @@ store.subscribe(() => {
             await clipboardConfigure(cfg.clipboardClearSeconds);
         } catch (err) {
             // 起不来只是不自动锁，库本身照常可用，不该打扰用户
-            reportError(`启用自动锁定失败：${errorText(err)}`);
+            reportError(`启用自动锁定失败：${errorDetail(err)}`);
         }
     })();
 });
@@ -471,7 +472,8 @@ store.subscribe((status) => {
             saveFlagEl.classList.add('is-error', 'is-on');
             if (status.error && status.error !== lastSaveError) {
                 lastSaveError = status.error;
-                toast(`保存失败：${status.error}`, 'err', 3200);
+                console.error('[save]', status.error);
+                toast('保存失败，改动只在内存里，退出会丢失', 'err', 3200);
             }
             break;
         case 'saved': {
@@ -550,10 +552,6 @@ document.addEventListener('keydown', (ev) => {
 });
 
 // ------------------------------------------------------------------ 启动自检
-
-function errorText(err: unknown): string {
-    return err instanceof Error ? err.message : String(err);
-}
 
 /**
  * 等到下一帧再读时间。返回 null = 等到上限也没等到帧。
@@ -982,7 +980,7 @@ async function enterDevUnlocked(flags: string[]): Promise<void> {
             enterApp();
             return;
         } catch (err) {
-            reportError(`开发直通解锁失败，退到内存会话：${errorText(err)}`);
+            reportError(`开发直通解锁失败，退到内存会话：${errorDetail(err)}`);
         }
     }
 
@@ -1004,7 +1002,7 @@ void (async () => {
         selfTestMs = await argon2SelfTest();
         installArgon2();
     } catch (err) {
-        reportError(`引擎自检失败：${errorText(err)}`);
+        reportError(`引擎自检失败：${errorDetail(err)}`);
     }
 
     // 自动锁定的落地端。订在验收分支之前 —— 验收要能测到
@@ -1067,8 +1065,8 @@ void (async () => {
             // 先走 report_error 这条通道：它每次调用都有回显，能确认消息真的到了宿主。
             // report_boot 只在最后那次调用里才有输出，用它报错时「没输出」既可能是
             // 没走到这里，也可能是走到了但消息没出去 —— 分不清。
-            await reportErrorSync(`验收脚本抛异常：${errorText(err)}`);
-            await reportBoot(JSON.stringify({ error: `验收脚本抛异常：${errorText(err)}` }, null, 2));
+            await reportErrorSync(`验收脚本抛异常：${errorDetail(err)}`);
+            await reportBoot(JSON.stringify({ error: `验收脚本抛异常：${errorDetail(err)}` }, null, 2));
             return;
         }
 
